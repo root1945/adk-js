@@ -292,7 +292,7 @@ function mergeFunctionResponseEvents(events: Event[]): Event {
  * Rearrange the async functionResponse events in the history.
  */
 function rearrangeEventsForLatestFunctionResponse(events: Event[]): Event[] {
-  if (events.length === 0) {
+  if (events.length < 2) {
     return events;
   }
 

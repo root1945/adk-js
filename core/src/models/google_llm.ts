@@ -4,17 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  Blob,
-  createPartFromText,
-  FileData,
-  FinishReason,
-  GenerateContentResponse,
-  GoogleGenAI,
-  Part,
-} from '@google/genai';
+import {Blob, createPartFromText, FileData, GoogleGenAI} from '@google/genai';
 
 import {logger} from '../utils/logger.js';
+import {StreamingResponseAggregator} from '../utils/streaming_utils.js';
 import {GoogleLLMVariant} from '../utils/variant_utils.js';
 
 import {BaseLlm} from './base_llm.js';
@@ -172,72 +165,22 @@ export class Gemini extends BaseLlm {
     }
 
     if (stream) {
-      const streamResult = await this.apiClient.models.generateContentStream({
+      const responses = await this.apiClient.models.generateContentStream({
         model: llmRequest.model ?? this.model,
         contents: llmRequest.contents,
         config: llmRequest.config,
       });
-      let thoughtText = '';
-      let text = '';
-      let usageMetadata;
-      let lastResponse: GenerateContentResponse | undefined;
 
-      // TODO - b/425992518: verify the type of streaming response is correct.
-      for await (const response of streamResult) {
-        lastResponse = response;
-        const llmResponse = createLlmResponse(response);
-        usageMetadata = llmResponse.usageMetadata;
-        const firstPart = llmResponse.content?.parts?.[0];
-        // Accumulates the text and thought text from the first part.
-        if (firstPart?.text) {
-          if ('thought' in firstPart && firstPart.thought) {
-            thoughtText += firstPart.text;
-          } else {
-            text += firstPart.text;
-          }
-          llmResponse.partial = true;
-        } else if (
-          (thoughtText || text) &&
-          (!firstPart || !firstPart.inlineData)
-        ) {
-          // Flushes the data if there's no more text.
-          const parts: Part[] = [];
-          if (thoughtText) {
-            parts.push({text: thoughtText, thought: true});
-          }
-          if (text) {
-            parts.push(createPartFromText(text));
-          }
-          yield {
-            content: {
-              role: 'model',
-              parts,
-            },
-            usageMetadata: llmResponse.usageMetadata,
-          };
-          thoughtText = '';
-          text = '';
+      const aggregator = new StreamingResponseAggregator();
+      for await (const response of responses) {
+        for await (const llmResponse of aggregator.processResponse(response)) {
+          yield llmResponse;
         }
-        yield llmResponse;
       }
-      if (
-        (text || thoughtText) &&
-        lastResponse?.candidates?.[0]?.finishReason === FinishReason.STOP
-      ) {
-        const parts: Part[] = [];
-        if (thoughtText) {
-          parts.push({text: thoughtText, thought: true} as Part);
-        }
-        if (text) {
-          parts.push({text: text});
-        }
-        yield {
-          content: {
-            role: 'model',
-            parts,
-          },
-          usageMetadata,
-        };
+
+      const closeResult = aggregator.close();
+      if (closeResult) {
+        yield closeResult;
       }
     } else {
       const response = await this.apiClient.models.generateContent({

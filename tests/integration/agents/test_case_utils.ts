@@ -4,21 +4,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type {Event, LlmAgentConfig, RunConfig} from '@google/adk';
 import {
   BasePlugin,
-  Event,
   Gemini,
   InMemoryRunner,
   isLlmAgent,
   LlmAgent,
-  LlmAgentConfig,
 } from '@google/adk';
+import type {Candidate, UsageMetadata} from '@google/genai';
 import {
-  Candidate,
   createUserContent,
   GenerateContentResponse,
   GoogleGenAI,
-  UsageMetadata,
 } from '@google/genai';
 import {expect} from 'vitest';
 
@@ -60,7 +58,11 @@ function toGenerateContentResponse(
 class MockModels {
   private responseIndex = 0;
 
-  constructor(private readonly responses: GenerateContentResponse[]) {}
+  private readonly responses: GenerateContentResponse[];
+
+  constructor(responses: GenerateContentResponse[]) {
+    this.responses = responses;
+  }
 
   async generateContent(_req: unknown): Promise<GenerateContentResponse> {
     return this.getNextResponse();
@@ -120,10 +122,15 @@ export class GeminiWithMockResponses extends Gemini {
  * @param agent The agent to create a runner for.
  * @returns A runner for the given agent.
  */
-export async function createRunner(
-  agent: LlmAgent,
-  plugins: BasePlugin[] = [],
-) {
+export async function createRunner({
+  agent,
+  plugins = [],
+  runConfig,
+}: {
+  agent: LlmAgent;
+  plugins?: BasePlugin[];
+  runConfig?: RunConfig;
+}) {
   const userId = 'test_user';
   const appName = agent.name;
   const runner = new InMemoryRunner({agent: agent, appName, plugins});
@@ -138,6 +145,7 @@ export async function createRunner(
         userId,
         sessionId: session.id,
         newMessage: createUserContent(prompt),
+        runConfig,
       });
     },
   };
@@ -151,12 +159,12 @@ const INVOCATION_ID_REGEX =
  * Runs the given test case.
  * @param testCase The test case to run.
  */
-export async function runTestCase(testCase: TestCase) {
+export async function runTestCase(testCase: TestCase, runConfig?: RunConfig) {
   const agent = isLlmAgent(testCase.agent)
     ? testCase.agent
     : new LlmAgent(testCase.agent);
   agent.model = new GeminiWithMockResponses(testCase.modelResponses);
-  const runner = await createRunner(agent);
+  const runner = await createRunner({agent, runConfig});
 
   for (const turn of testCase.turns) {
     let eventIndex = 0;

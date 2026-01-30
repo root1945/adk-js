@@ -1627,11 +1627,10 @@ export class LlmAgent extends BaseAgent {
         yield event;
       }
 
-      if (!lastEvent || isFinalResponse(lastEvent)) {
-        break;
-      }
-      if (lastEvent.partial) {
-        logger.warn('The last event is partial, which is not expected.');
+      if (!lastEvent || isFinalResponse(lastEvent) || lastEvent.partial) {
+        if (lastEvent?.partial) {
+          logger.warn('The last event is partial, which is not expected.');
+        }
         break;
       }
     }

@@ -23,16 +23,37 @@ import {
 import {createSession, Session} from './session.js';
 import {State} from './state.js';
 
-@Table({tableName: 'storage_app_state', timestamps: false})
+@Table({
+  tableName: 'adk_internal_metadata',
+  timestamps: false,
+})
+class StorageMetadata extends Model {
+  @Column({primaryKey: true, type: DataType.STRING})
+  declare key: string;
+
+  @Column({type: DataType.STRING})
+  declare value: string;
+}
+
+@Table({
+  tableName: 'app_states',
+  timestamps: false,
+})
 class StorageAppState extends Model {
   @Column({primaryKey: true, type: DataType.STRING})
   declare app_name: string;
 
   @Column({type: DataType.JSON})
   declare state: Record<string, unknown>;
+
+  @Column({type: DataType.DATE(6), defaultValue: DataType.NOW})
+  declare update_time: Date;
 }
 
-@Table({tableName: 'storage_user_state', timestamps: false})
+@Table({
+  tableName: 'user_states',
+  timestamps: false,
+})
 class StorageUserState extends Model {
   @Column({primaryKey: true, type: DataType.STRING})
   declare app_name: string;
@@ -42,44 +63,77 @@ class StorageUserState extends Model {
 
   @Column({type: DataType.JSON})
   declare state: Record<string, unknown>;
+
+  @Column({type: DataType.DATE(6), defaultValue: DataType.NOW})
+  declare update_time: Date;
 }
 
 @Table({
-  tableName: 'storage_session',
-  timestamps: true,
-  createdAt: 'create_time',
-  updatedAt: 'update_time',
+  tableName: 'sessions',
+  timestamps: false,
 })
 class StorageSession extends Model {
   @Column({primaryKey: true, type: DataType.STRING})
   declare id: string;
 
-  @Column({type: DataType.STRING})
+  @Column({primaryKey: true, type: DataType.STRING})
   declare app_name: string;
 
-  @Column({type: DataType.STRING})
+  @Column({primaryKey: true, type: DataType.STRING})
   declare user_id: string;
 
   @Column({type: DataType.JSON})
   declare state: Record<string, unknown>;
+
+  @Column({type: DataType.DATE(6), defaultValue: DataType.NOW})
+  declare create_time: Date;
+
+  @Column({type: DataType.DATE(6), defaultValue: DataType.NOW})
+  declare update_time: Date;
 }
 
-@Table({tableName: 'storage_event', timestamps: false})
+@Table({tableName: 'events', timestamps: false})
 class StorageEvent extends Model {
-  @Column({type: DataType.STRING})
+  @Column({primaryKey: true, type: DataType.STRING})
+  declare id: string;
+
+  @Column({primaryKey: true, type: DataType.STRING})
   declare app_name: string;
 
-  @Column({type: DataType.STRING})
+  @Column({primaryKey: true, type: DataType.STRING})
   declare user_id: string;
 
-  @Column({type: DataType.STRING})
+  @Column({primaryKey: true, type: DataType.STRING})
   declare session_id: string;
 
-  @Column({type: DataType.BIGINT}) // Store timestamp as number
-  declare timestamp: number;
+  @Column({type: DataType.STRING})
+  declare invocation_id: string;
+
+  @Column({type: DataType.DATE(6)})
+  declare timestamp: Date;
 
   @Column({type: DataType.JSON})
   declare event_data: Event;
+}
+
+const SUPPORTED_PROTOCOLS = [
+  'sqlite://',
+  'postgresql://',
+  'mysql://',
+  'mssql://',
+  'mariadb://',
+  'db2://',
+  'snowflake://',
+  'oracle://',
+];
+
+/**
+ * Checks if the given URI is a database connection string.
+ */
+export function isDatabaseConnectionString(uri?: string): boolean {
+  return (
+    !!uri && SUPPORTED_PROTOCOLS.some((protocol) => uri.startsWith(protocol))
+  );
 }
 
 /**
@@ -89,11 +143,12 @@ export class DatabaseSessionService extends BaseSessionService {
   private sequelize: Sequelize;
   private initialized = false;
 
-  constructor(optionsOrUrl: SequelizeOptions | string) {
+  constructor(optionsOrUrl: Sequelize | SequelizeOptions | string) {
     super();
     if (typeof optionsOrUrl === 'string') {
       this.sequelize = new Sequelize(optionsOrUrl, {
         models: [
+          StorageMetadata,
           StorageAppState,
           StorageUserState,
           StorageSession,
@@ -101,10 +156,20 @@ export class DatabaseSessionService extends BaseSessionService {
         ],
         logging: false,
       });
+    } else if (optionsOrUrl instanceof Sequelize) {
+      this.sequelize = optionsOrUrl;
+      this.sequelize.addModels([
+        StorageMetadata,
+        StorageAppState,
+        StorageUserState,
+        StorageSession,
+        StorageEvent,
+      ]);
     } else {
       this.sequelize = new Sequelize({
         ...optionsOrUrl,
         models: [
+          StorageMetadata,
           StorageAppState,
           StorageUserState,
           StorageSession,
@@ -200,8 +265,8 @@ export class DatabaseSessionService extends BaseSessionService {
       userId,
       state: mergedState,
       events: [],
-      lastUpdateTime: storageSession.createdAt
-        ? storageSession.createdAt.getTime()
+      lastUpdateTime: storageSession.create_time
+        ? storageSession.create_time.getTime()
         : now,
     });
   }
@@ -278,8 +343,8 @@ export class DatabaseSessionService extends BaseSessionService {
       userId,
       state: mergedState,
       events: eventsFn,
-      lastUpdateTime: storageSession.updatedAt
-        ? storageSession.updatedAt.getTime()
+      lastUpdateTime: storageSession.update_time
+        ? storageSession.update_time.getTime()
         : Date.now(),
     });
   }
@@ -329,7 +394,7 @@ export class DatabaseSessionService extends BaseSessionService {
         userId: ss.user_id,
         state: merged,
         events: [], // ListSessions doesn't return events
-        lastUpdateTime: ss.updatedAt ? ss.updatedAt.getTime() : Date.now(),
+        lastUpdateTime: ss.update_time ? ss.update_time.getTime() : Date.now(),
       });
     });
 
@@ -429,10 +494,12 @@ export class DatabaseSessionService extends BaseSessionService {
 
     // Save event
     await StorageEvent.create({
+      id: event.id,
       app_name: session.appName,
       user_id: session.userId,
       session_id: session.id,
-      timestamp: event.timestamp,
+      invocation_id: event.invocationId,
+      timestamp: new Date(event.timestamp),
       event_data: event,
     });
 
@@ -440,7 +507,7 @@ export class DatabaseSessionService extends BaseSessionService {
     // storageSession.changed('updatedAt', true); // Force update?
     // Actually just saving it again or explicitly updating timestamp might be needed if state didn't change?
     // Sequelize updates `updatedAt` on save if fields changed.
-    storageSession.changed('updatedAt', true);
+    storageSession.changed('update_time', true);
     await storageSession.save();
 
     // Update in-memory session object to reflect new state
@@ -452,8 +519,8 @@ export class DatabaseSessionService extends BaseSessionService {
     );
     session.state = newMergedState;
     session.events.push(event);
-    session.lastUpdateTime = storageSession.updatedAt
-      ? storageSession.updatedAt.getTime()
+    session.lastUpdateTime = storageSession.update_time
+      ? storageSession.update_time.getTime()
       : Date.now();
 
     return event;

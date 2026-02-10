@@ -9,7 +9,11 @@ import {
   Table,
 } from 'sequelize-typescript';
 
-import {Event} from '../events/event.js';
+import {
+  Event,
+  transformToCamelCaseEvent,
+  transformToSnakeCaseEvent,
+} from '../events/event.js';
 import {randomUUID} from '../utils/env_aware_utils.js';
 import {
   AppendEventRequest,
@@ -22,6 +26,9 @@ import {
 } from './base_session_service.js';
 import {createSession, Session} from './session.js';
 import {State} from './state.js';
+
+const SCHEMA_VERSION_KEY = 'schema_version';
+const SCHEMA_VERSION_1_JSON = '1';
 
 @Table({
   tableName: 'adk_internal_metadata',
@@ -112,13 +119,34 @@ class StorageEvent extends Model {
   @Column({type: DataType.DATE(6)})
   declare timestamp: Date;
 
-  @Column({type: DataType.JSON})
+  @Column({
+    type: DataType.JSON,
+    get: function () {
+      return transformToCamelCaseEvent(
+        JSON.parse(this.getDataValue('event_data')),
+      );
+    },
+    set: function (value: Event) {
+      this.setDataValue(
+        'event_data',
+        JSON.stringify(transformToSnakeCaseEvent(value)),
+      );
+    },
+  })
   declare event_data: Event;
 }
 
+const MODELS = [
+  StorageMetadata,
+  StorageAppState,
+  StorageUserState,
+  StorageSession,
+  StorageEvent,
+];
+
 const SUPPORTED_PROTOCOLS = [
-  'sqlite://',
   'postgresql://',
+  'sqlite://',
   'mysql://',
   'mssql://',
   'mariadb://',
@@ -143,38 +171,20 @@ export class DatabaseSessionService extends BaseSessionService {
   private sequelize: Sequelize;
   private initialized = false;
 
-  constructor(optionsOrUrl: Sequelize | SequelizeOptions | string) {
+  constructor(instanceOrOptionsOrUrl: Sequelize | SequelizeOptions | string) {
     super();
-    if (typeof optionsOrUrl === 'string') {
-      this.sequelize = new Sequelize(optionsOrUrl, {
-        models: [
-          StorageMetadata,
-          StorageAppState,
-          StorageUserState,
-          StorageSession,
-          StorageEvent,
-        ],
+    if (typeof instanceOrOptionsOrUrl === 'string') {
+      this.sequelize = new Sequelize(instanceOrOptionsOrUrl, {
+        models: MODELS,
         logging: false,
       });
-    } else if (optionsOrUrl instanceof Sequelize) {
-      this.sequelize = optionsOrUrl;
-      this.sequelize.addModels([
-        StorageMetadata,
-        StorageAppState,
-        StorageUserState,
-        StorageSession,
-        StorageEvent,
-      ]);
+    } else if (instanceOrOptionsOrUrl instanceof Sequelize) {
+      this.sequelize = instanceOrOptionsOrUrl;
+      this.sequelize.addModels(MODELS);
     } else {
       this.sequelize = new Sequelize({
-        ...optionsOrUrl,
-        models: [
-          StorageMetadata,
-          StorageAppState,
-          StorageUserState,
-          StorageSession,
-          StorageEvent,
-        ],
+        ...instanceOrOptionsOrUrl,
+        models: MODELS,
         logging: false,
       });
     }
@@ -183,8 +193,29 @@ export class DatabaseSessionService extends BaseSessionService {
   private async init() {
     if (!this.initialized) {
       await this.sequelize.sync();
+      await this.validateSchemaVersion();
       this.initialized = true;
     }
+  }
+
+  private async validateSchemaVersion() {
+    const existing = await StorageMetadata.findOne({
+      where: {key: SCHEMA_VERSION_KEY},
+    });
+
+    if (existing) {
+      if (existing.value !== SCHEMA_VERSION_1_JSON) {
+        throw new Error(
+          `ADK Database schema version ${existing.value} is not compatible.`,
+        );
+      }
+      return;
+    }
+
+    await StorageMetadata.findOrCreate({
+      where: {key: SCHEMA_VERSION_KEY},
+      defaults: {key: SCHEMA_VERSION_KEY, value: SCHEMA_VERSION_1_JSON},
+    });
   }
 
   async createSession({

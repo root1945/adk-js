@@ -73,6 +73,7 @@ export {
   hasTrailingCodeExecutionResult,
   isFinalResponse,
   stringifyContent,
+  transformToCamelCaseEvent,
 } from './events/event.js';
 export type {Event} from './events/event.js';
 export {createEventActions} from './events/event_actions.js';

@@ -17,6 +17,7 @@ import {Argument, Command, Option} from 'commander';
 import dotenv from 'dotenv';
 import * as os from 'os';
 import * as path from 'path';
+import {BatchYamlAgentLoader} from '../conformance/yaml_agent_loader.js';
 import {AdkApiServer} from '../server/adk_api_server.js';
 import {FileModuleType} from '../utils/agent_loader.js';
 import {getTempDir} from '../utils/file_utils.js';
@@ -365,6 +366,24 @@ DEPLOY_COMMAND.command('cloud_run')
       agentFileLoadOptions: getAgentFileOptions(options),
       extraGcloudArgs,
     });
+  });
+
+const CONFORMANCE_COMMAND = program
+  .command('integration')
+  .description('Run ADK integration and conformance tests');
+
+CONFORMANCE_COMMAND.command('run')
+  .option(
+    '--agents_dir [dir]',
+    'Directory of conformance test agent definitions. Recursively searched for .yaml files with agent definitions.',
+    process.cwd(),
+  )
+  .action(async (options: Record<string, string>) => {
+    console.log(options['agents_dir']);
+    const agentConfigs = await new BatchYamlAgentLoader(
+      options['agents_dir'],
+    ).load();
+    console.log(agentConfigs.length);
   });
 
 try {

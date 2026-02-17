@@ -17,6 +17,7 @@ import {Argument, Command, Option} from 'commander';
 import dotenv from 'dotenv';
 import * as os from 'os';
 import * as path from 'path';
+import {registerConformanceIntegrations} from '../conformance/conformance_integrations.js';
 import {BatchYamlAgentLoader} from '../conformance/yaml_agent_loader.js';
 import {AdkApiServer} from '../server/adk_api_server.js';
 import {FileModuleType} from '../utils/agent_loader.js';
@@ -25,6 +26,7 @@ import {version} from '../version.js';
 import {createAgent} from './cli_create.js';
 import {deployToCloudRun} from './cli_deploy.js';
 import {runAgent} from './cli_run.js';
+import {IntegrationRegistry} from './integration/integration_registry.js';
 
 dotenv.config({quiet: true});
 
@@ -372,7 +374,10 @@ const CONFORMANCE_COMMAND = program
   .command('integration')
   .description('Run ADK integration and conformance tests');
 
-CONFORMANCE_COMMAND.command('run')
+CONFORMANCE_COMMAND.command('conformance')
+  .description('Run ADK conformance tests')
+  .addOption(VERBOSE_OPTION)
+  .addOption(LOG_LEVEL_OPTION)
   .option(
     '--agents_dir [dir]',
     'Directory of conformance test agent definitions. Recursively searched for .yaml files with agent definitions.',
@@ -384,6 +389,11 @@ CONFORMANCE_COMMAND.command('run')
       options['agents_dir'],
     ).load();
     console.log(agentConfigs.length);
+
+    console.log('Registering conformance integrations...');
+    const registry = new IntegrationRegistry();
+    registerConformanceIntegrations(registry);
+    console.log(registry.summary());
   });
 
 try {

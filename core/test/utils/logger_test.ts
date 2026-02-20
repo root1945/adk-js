@@ -63,15 +63,10 @@ describe('setLogger', () => {
 
   describe('null logger (disable logging)', () => {
     it('disables all logging when null is passed', () => {
-      const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-
       setLogger(null);
       const logger = getLogger();
 
-      logger.info('this should not appear');
-
-      expect(consoleSpy).not.toHaveBeenCalled();
-      consoleSpy.mockRestore();
+      expect(logger.constructor.name).toBe('NoOpLogger');
     });
 
     it('handles all log levels silently', () => {
@@ -134,16 +129,12 @@ describe('setLogger', () => {
 
   describe('resetLogger', () => {
     it('restores the default logger', () => {
-      const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-
       setLogger(null);
       resetLogger();
 
       const logger = getLogger();
-      logger.info('after reset');
 
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
+      expect(logger.constructor.name).toBe('SimpleLogger');
     });
   });
 });

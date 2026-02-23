@@ -45,7 +45,7 @@ describe('AgentRegistry', () => {
       agentClass: 'LlmAgent',
     } as unknown as YamlAgentConfig;
 
-    agentRegistry.registerAgentFromConfig(config);
+    agentRegistry.registerAgentFromConfig('config_agent', config);
     const retrieved = agentRegistry.getAgent('config_agent');
 
     expect(retrieved).toBeDefined();
@@ -75,7 +75,7 @@ describe('AgentRegistry', () => {
       afterAgentCallbacks: [{name: 'after_cb'}],
     } as unknown as YamlAgentConfig;
 
-    agentRegistry.registerAgentFromConfig(config);
+    agentRegistry.registerAgentFromConfig('callback_agent', config);
     const retrieved = agentRegistry.getAgent('callback_agent');
 
     expect(retrieved).toBeDefined();
@@ -91,9 +91,9 @@ describe('AgentRegistry', () => {
       beforeAgentCallbacks: [{name: 'missing_cb'}],
     } as unknown as YamlAgentConfig;
 
-    expect(() => agentRegistry.registerAgentFromConfig(config)).toThrow(
-      'BeforeAgentCallback missing_cb not found in registry',
-    );
+    expect(() =>
+      agentRegistry.registerAgentFromConfig('bad_agent', config),
+    ).toThrow('BeforeAgentCallback missing_cb not found in registry');
   });
 
   it('should throw error if after callback is missing', () => {
@@ -106,8 +106,8 @@ describe('AgentRegistry', () => {
       afterAgentCallbacks: [{name: 'missing_cb'}],
     } as unknown as YamlAgentConfig;
 
-    expect(() => agentRegistry.registerAgentFromConfig(config)).toThrow(
-      'AfterAgentCallback missing_cb not found in registry',
-    );
+    expect(() =>
+      agentRegistry.registerAgentFromConfig('bad_agent', config),
+    ).toThrow('AfterAgentCallback missing_cb not found in registry');
   });
 });

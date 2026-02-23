@@ -73,9 +73,9 @@ describe('BatchYamlAgentLoader', () => {
 
   it('should load and parse yaml files recursively', async () => {
     const mockFiles = [
-      '/path/to/agent1.yaml',
-      '/path/to/subdir/agent2.yml',
-      '/path/to/agent3.yaml',
+      '/root/dir/agent1.yaml',
+      '/root/dir/subdir/agent2.yml',
+      '/root/dir/agent3.yaml',
     ];
 
     // Mock fg.stream to return the file list.
@@ -84,13 +84,13 @@ describe('BatchYamlAgentLoader', () => {
 
     // Mock fs.readFile to return YAML content based on filename
     (fs.readFile as Mock).mockImplementation(async (filePath: string) => {
-      if (filePath === '/path/to/agent1.yaml') {
+      if (filePath === '/root/dir/agent1.yaml') {
         return AGENT_ONE_YAML;
       }
-      if (filePath === '/path/to/subdir/agent2.yml') {
+      if (filePath === '/root/dir/subdir/agent2.yml') {
         return AGENT_TWO_YAML;
       }
-      if (filePath === '/path/to/agent3.yaml') {
+      if (filePath === '/root/dir/agent3.yaml') {
         return AGENT_THREE_YAML;
       }
       throw new Error(`File not found: ${filePath}`);
@@ -104,16 +104,16 @@ describe('BatchYamlAgentLoader', () => {
       absolute: true,
     });
 
-    expect(agents).toHaveLength(3);
+    expect(agents.size).toBe(3);
 
-    expect(agents[0]).toMatchObject({
+    expect(agents.get('agent1')).toMatchObject({
       name: 'agent_one',
       model: 'gemini-pro',
       description: 'The first agent',
       instruction: 'You are agent one.',
     });
 
-    expect(agents[1]).toMatchObject({
+    expect(agents.get('subdir/agent2')).toMatchObject({
       name: 'agent_two',
       model: 'gemini-flash',
       description: 'The second agent',
@@ -121,7 +121,7 @@ describe('BatchYamlAgentLoader', () => {
       disallowTransferToParent: 'true', // Verified camelCase conversion
     });
 
-    expect(agents[2]).toMatchObject({
+    expect(agents.get('agent3')).toMatchObject({
       agentClass: 'LlmAgent',
       name: 'agent_three',
       model: 'gemini-1.5-pro',
@@ -165,12 +165,12 @@ describe('BatchYamlAgentLoader', () => {
       'ParallelAgent',
       'SequentialAgent',
     ];
-    const mockFiles = validClasses.map((cls) => `/path/to/${cls}.yaml`);
+    const mockFiles = validClasses.map((cls) => `/root/dir/${cls}.yaml`);
 
     (fg.stream as unknown as Mock).mockReturnValue(mockFiles);
 
     (fs.readFile as Mock).mockImplementation(async (filePath: string) => {
-      const cls = filePath.split('/').pop()?.replace('.yaml', '');
+      const cls = filePath.split('/').pop()?.replace('.yaml', '') || '';
       return `
 name: agent_${cls}
 agent_class: ${cls}
@@ -183,14 +183,14 @@ instruction: instr
     const loader = new BatchYamlAgentLoader('/root/dir');
     const agents = await loader.load();
 
-    expect(agents).toHaveLength(4);
-    validClasses.forEach((cls, index) => {
-      expect(agents[index].agentClass).toBe(cls);
+    expect(agents.size).toBe(4);
+    validClasses.forEach((cls) => {
+      expect(agents.get(cls)?.agentClass).toBe(cls);
     });
   });
 
   it('should allow invalid AgentClass values as strings', async () => {
-    const mockFiles = ['/path/to/invalid.yaml'];
+    const mockFiles = ['/root/dir/invalid.yaml'];
     (fg.stream as unknown as Mock).mockReturnValue(mockFiles);
 
     (fs.readFile as Mock).mockImplementation(
@@ -206,12 +206,12 @@ instruction: instr
     const loader = new BatchYamlAgentLoader('/root/dir');
     const agents = await loader.load();
 
-    expect(agents).toHaveLength(1);
-    expect(agents[0].agentClass).toBe('InvalidClass');
+    expect(agents.size).toBe(1);
+    expect(agents.get('invalid')?.agentClass).toBe('InvalidClass');
   });
 
   it('should support all ToolsConfiguration args types', async () => {
-    const mockFiles = ['/path/to/agent_tools.yaml'];
+    const mockFiles = ['/root/dir/agent_tools.yaml'];
     (fg.stream as unknown as Mock).mockReturnValue(mockFiles);
 
     const AGENT_WITH_TOOLS_YAML = `
@@ -258,8 +258,8 @@ tools_configuration:
     const loader = new BatchYamlAgentLoader('/root/dir');
     const agents = await loader.load();
 
-    expect(agents).toHaveLength(1);
-    const tools = agents[0].toolsConfiguration;
+    expect(agents.size).toBe(1);
+    const tools = agents.get('agent_tools')?.toolsConfiguration;
     expect(tools).toHaveLength(4);
 
     expect(tools![0]).toMatchObject({
@@ -317,7 +317,7 @@ tools_configuration:
   });
 
   it('should handle extra fields gracefully (forward compatibility)', async () => {
-    const mockFiles = ['/path/to/agent_extra.yaml'];
+    const mockFiles = ['/root/dir/agent_extra.yaml'];
     (fg.stream as unknown as Mock).mockReturnValue(mockFiles);
 
     const AGENT_WITH_EXTRA_FIELDS = `
@@ -337,8 +337,9 @@ nested_extra:
     const loader = new BatchYamlAgentLoader('/root/dir');
     const agents = await loader.load();
 
-    expect(agents).toHaveLength(1);
-    expect(agents[0]).toMatchObject({
+    expect(agents.size).toBe(1);
+    const agent = agents.get('agent_extra');
+    expect(agent).toMatchObject({
       name: 'agent_extra',
       model: 'model',
       description: 'desc',
@@ -346,8 +347,8 @@ nested_extra:
     });
     // Verify extra fields are present and camelCased
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((agents[0] as any).extraField).toBe('extra_value');
+    expect((agent as any).extraField).toBe('extra_value');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect((agents[0] as any).nestedExtra).toEqual({someKey: 'some_value'});
+    expect((agent as any).nestedExtra).toEqual({someKey: 'some_value'});
   });
 });

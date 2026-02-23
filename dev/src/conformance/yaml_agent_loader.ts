@@ -7,6 +7,7 @@
 import camelcaseKeys from 'camelcase-keys';
 import fg from 'fast-glob';
 import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import {parse} from 'yaml';
 
 /**
@@ -110,21 +111,24 @@ export interface YamlAgentConfig {
 export class BatchYamlAgentLoader {
   constructor(private readonly directory: string) {}
 
-  async load(): Promise<YamlAgentConfig[]> {
+  async load(): Promise<Map<string, YamlAgentConfig>> {
     console.log('Loading agents from ', this.directory);
     const files = fg.stream('**/*.{yaml,yml}', {
       cwd: this.directory,
       absolute: true,
     });
-    const agents: YamlAgentConfig[] = [];
+    const agents = new Map<string, YamlAgentConfig>();
 
     for await (const file of files) {
-      //console.log(file);
-      const content = await fs.readFile(file, 'utf-8');
+      const filePath = file as string;
+      const content = await fs.readFile(filePath, 'utf-8');
       const agent = camelcaseKeys(parse(content), {
         deep: true,
       }) as YamlAgentConfig;
-      agents.push(agent);
+      const relativePath = path.relative(this.directory, filePath);
+      const parsedPath = path.parse(relativePath);
+      const name = path.join(parsedPath.dir, parsedPath.name);
+      agents.set(name, agent);
     }
 
     return agents;

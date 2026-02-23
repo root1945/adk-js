@@ -389,7 +389,7 @@ CONFORMANCE_COMMAND.command('conformance')
     const agentConfigs = await new BatchYamlAgentLoader(
       options['agents_dir'],
     ).load();
-    console.log(agentConfigs.length);
+    console.log(agentConfigs.size);
 
     console.log('Registering conformance integrations...');
     const registry = new IntegrationRegistry();
@@ -398,8 +398,8 @@ CONFORMANCE_COMMAND.command('conformance')
 
     console.log('Registering agents');
     const agentRegistry = new AgentRegistry(registry);
-    for (const agentConfig of agentConfigs) {
-      agentRegistry.registerAgentFromConfig(agentConfig);
+    for (const [name, agentConfig] of agentConfigs) {
+      agentRegistry.registerAgentFromConfig(name, agentConfig);
     }
     console.log(agentRegistry.summary());
   });

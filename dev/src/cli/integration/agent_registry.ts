@@ -24,8 +24,8 @@ export class AgentRegistry {
     return this.agents.get(name);
   }
 
-  registerAgentFromConfig(config: YamlAgentConfig) {
-    console.log('Inflating ', config.name);
+  registerAgentFromConfig(name: string, config: YamlAgentConfig) {
+    console.log('Inflating ', name);
 
     const beforeAgentCallbacks = config.beforeAgentCallbacks?.map(
       (callbackInfo) => {
@@ -64,7 +64,7 @@ export class AgentRegistry {
       afterAgentCallback: afterAgentCallbacks ?? [],
     });
 
-    this.registerAgent(config.name, agent);
+    this.registerAgent(name, agent);
   }
 
   summary(): string {

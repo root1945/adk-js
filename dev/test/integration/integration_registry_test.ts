@@ -4,13 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  AfterAgentCallback,
-  BasePlugin,
-  BeforeAgentCallback,
-  FunctionTool,
-} from '@google/adk';
+import {BasePlugin, FunctionTool} from '@google/adk';
 import {beforeEach, describe, expect, it} from 'vitest';
+import {SingleAgentCallback} from '../../../core/src/common.js';
 import {IntegrationRegistry} from '../../src/cli/integration/integration_registry.js';
 
 describe('IntegrationRegistry', () => {
@@ -35,7 +31,7 @@ describe('IntegrationRegistry', () => {
   });
 
   it('should register and retrieve before agent callbacks', () => {
-    const callback: BeforeAgentCallback = async () => {
+    const callback: SingleAgentCallback = async () => {
       return undefined;
     };
     const name = 'test_before_callback';
@@ -48,7 +44,7 @@ describe('IntegrationRegistry', () => {
   });
 
   it('should register and retrieve after agent callbacks', () => {
-    const callback: AfterAgentCallback = async () => {
+    const callback: SingleAgentCallback = async () => {
       return undefined;
     };
     const name = 'test_after_callback';

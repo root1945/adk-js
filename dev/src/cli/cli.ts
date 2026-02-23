@@ -26,6 +26,7 @@ import {version} from '../version.js';
 import {createAgent} from './cli_create.js';
 import {deployToCloudRun} from './cli_deploy.js';
 import {runAgent} from './cli_run.js';
+import {AgentRegistry} from './integration/agent_registry.js';
 import {IntegrationRegistry} from './integration/integration_registry.js';
 
 dotenv.config({quiet: true});
@@ -394,6 +395,13 @@ CONFORMANCE_COMMAND.command('conformance')
     const registry = new IntegrationRegistry();
     registerConformanceIntegrations(registry);
     console.log(registry.summary());
+
+    console.log('Registering agents');
+    const agentRegistry = new AgentRegistry(registry);
+    for (const agentConfig of agentConfigs) {
+      agentRegistry.registerAgentFromConfig(agentConfig);
+    }
+    console.log(agentRegistry.summary());
   });
 
 try {

@@ -48,9 +48,9 @@ disallow_transfer_to_peers: "true"
 generate_content_config:
   temperature: 0.9
 before_agent_callbacks:
-  - beforeCallback
+  - name: beforeCallback
 after_agent_callbacks:
-  - afterCallback
+  - name: afterCallback
 sub_agents:
   - config_path: /path/to/subagent.yaml
 tools_configuration:
@@ -133,8 +133,8 @@ describe('BatchYamlAgentLoader', () => {
       generateContentConfig: {
         temperature: 0.9,
       },
-      beforeAgentCallbacks: ['beforeCallback'],
-      afterAgentCallbacks: ['afterCallback'],
+      beforeAgentCallbacks: [{name: 'beforeCallback'}],
+      afterAgentCallbacks: [{name: 'afterCallback'}],
       subAgents: [
         {
           configPath: '/path/to/subagent.yaml',

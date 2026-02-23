@@ -4,17 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  AfterAgentCallback,
-  BasePlugin,
-  BeforeAgentCallback,
-  FunctionTool,
-} from '@google/adk';
+import {BasePlugin, FunctionTool, SingleAgentCallback} from '@google/adk';
 
 export class IntegrationRegistry {
   private tools = new Map<string, FunctionTool>();
-  private beforeAgentCallbacks = new Map<string, BeforeAgentCallback>();
-  private afterAgentCallbacks = new Map<string, AfterAgentCallback>();
+  private beforeAgentCallbacks = new Map<string, SingleAgentCallback>();
+  private afterAgentCallbacks = new Map<string, SingleAgentCallback>();
   private plugins = new Map<string, BasePlugin>();
 
   summary(): string {
@@ -34,19 +29,19 @@ export class IntegrationRegistry {
     return this.tools.get(name);
   }
 
-  registerBeforeAgentCallback(name: string, callback: BeforeAgentCallback) {
+  registerBeforeAgentCallback(name: string, callback: SingleAgentCallback) {
     this.beforeAgentCallbacks.set(name, callback);
   }
 
-  getBeforeAgentCallback(name: string): BeforeAgentCallback | undefined {
+  getBeforeAgentCallback(name: string): SingleAgentCallback | undefined {
     return this.beforeAgentCallbacks.get(name);
   }
 
-  registerAfterAgentCallback(name: string, callback: AfterAgentCallback) {
+  registerAfterAgentCallback(name: string, callback: SingleAgentCallback) {
     this.afterAgentCallbacks.set(name, callback);
   }
 
-  getAfterAgentCallback(name: string): AfterAgentCallback | undefined {
+  getAfterAgentCallback(name: string): SingleAgentCallback | undefined {
     return this.afterAgentCallbacks.get(name);
   }
 

@@ -23,6 +23,10 @@ interface GenerateContentConfig {
   temperature?: number;
 }
 
+interface CallbackInfo {
+  name: string;
+}
+
 interface AgentReference {
   configPath: string;
 }
@@ -93,8 +97,8 @@ export interface YamlAgentConfig {
   disallowTransferToParent?: string;
   disallowTransferToPeers?: string;
   generateContentConfig?: GenerateContentConfig;
-  beforeAgentCallbacks?: string[];
-  afterAgentCallbacks?: string[];
+  beforeAgentCallbacks?: CallbackInfo[];
+  afterAgentCallbacks?: CallbackInfo[];
   subAgents?: AgentReference[];
   toolsConfiguration?: ToolsConfiguration[];
 }
@@ -115,7 +119,7 @@ export class BatchYamlAgentLoader {
     const agents: YamlAgentConfig[] = [];
 
     for await (const file of files) {
-      // console.log(file);
+      //console.log(file);
       const content = await fs.readFile(file, 'utf-8');
       const agent = camelcaseKeys(parse(content), {
         deep: true,

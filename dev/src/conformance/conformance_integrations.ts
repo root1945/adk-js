@@ -5,11 +5,10 @@
  */
 
 import {
-  AfterAgentCallback,
   BasePlugin,
-  BeforeAgentCallback,
   CallbackContext,
   FunctionTool,
+  SingleAgentCallback,
 } from '@google/adk';
 import {Content} from '@google/genai';
 import {z} from 'zod';
@@ -23,18 +22,18 @@ export function registerConformanceIntegrations(registry: IntegrationRegistry) {
   }
 
   // Callbacks
-  const beforeAgentCallbacks: {name: string; callback: BeforeAgentCallback}[] =
+  const beforeAgentCallbacks: {name: string; callback: SingleAgentCallback}[] =
     [
       {
-        name: 'shortcut_agent_execution',
+        name: 'callback_agent_002.callbacks.shortcut_agent_execution',
         callback: shortcutAgentExecution,
       },
       {
-        name: 'before_agent_callback1',
+        name: 'callback_agent_001.callbacks.before_agent_callback1',
         callback: beforeAgentCallback1,
       },
       {
-        name: 'before_agent_callback2',
+        name: 'callback_agent_001.callbacks.before_agent_callback2',
         callback: beforeAgentCallback2,
       },
     ];
@@ -42,13 +41,13 @@ export function registerConformanceIntegrations(registry: IntegrationRegistry) {
     registry.registerBeforeAgentCallback(name, callback);
   }
 
-  const afterAgentCallbacks: {name: string; callback: AfterAgentCallback}[] = [
+  const afterAgentCallbacks: {name: string; callback: SingleAgentCallback}[] = [
     {
-      name: 'after_agent_callback1',
+      name: 'callback_agent_003.callbacks.after_agent_callback1',
       callback: afterAgentCallback1,
     },
     {
-      name: 'after_agent_callback2',
+      name: 'callback_agent_003.callbacks.after_agent_callback2',
       callback: afterAgentCallback2,
     },
   ];

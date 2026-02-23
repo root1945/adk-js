@@ -14,7 +14,8 @@ import {
 import {Part} from '@google/genai';
 import {Event, createEvent} from '../events/event.js';
 import {EventActions, createEventActions} from '../events/event_actions.js';
-import {toA2AParts} from './parts.js';
+import {randomUUID} from '../utils/env_aware_utils.js';
+import {toA2AParts, toGenAIParts} from './part_converter_utils.js';
 
 type A2AEvent =
   | Task
@@ -36,44 +37,31 @@ const ROLE_MODEL = 'model';
 /**
  * Converts a session Event to an A2A Message.
  */
-export async function toA2AMessage(event: Event): Promise<Message | undefined> {
+export function toA2AMessage(event?: Event): Message | undefined {
   if (!event) {
     return undefined;
   }
 
-  const parts = await toA2AParts(
-    event.content?.parts || [],
-    event.longRunningToolIds,
-  );
-
-  const role: 'user' | 'agent' = event.author === ROLE_USER ? 'user' : 'agent';
-
-  const msg: Message = {
+  return {
     kind: 'message',
-    messageId: crypto.randomUUID(),
-    role,
-    parts,
-    metadata: {},
+    messageId: randomUUID(),
+    role: event.author === ROLE_USER ? 'user' : 'agent',
+    parts: toA2AParts(event.content?.parts || [], event.longRunningToolIds),
+    metadata: {
+      ...toActionsMeta(event.actions),
+      ...(event.customMetadata || {}),
+    },
   };
-
-  const actionsMeta = toActionsMeta(event.actions);
-  Object.assign(msg.metadata!, actionsMeta);
-
-  if (event.customMetadata) {
-    Object.assign(msg.metadata!, event.customMetadata);
-  }
-
-  return msg;
 }
 
 /**
  * Converts an A2A Event to a Session Event.
  */
-export async function toSessionEvent(
+export function toAdkEvent(
   event: A2AEvent | unknown,
   invocationId: string,
   agentName: string,
-): Promise<Event | undefined> {
+): Event | undefined {
   if (isTaskStatusUpdateEvent(event)) {
     if (event.final) {
       return finalTaskStatusUpdateToEvent(event, invocationId, agentName);
@@ -118,13 +106,13 @@ function isTask(event: unknown): event is Task {
   return (event as Task)?.kind === 'task';
 }
 
-async function messageToEvent(
+function messageToEvent(
   msg: Message,
   invocationId: string,
   agentName: string,
   parentEvent?: TaskStatusUpdateEvent,
-): Promise<Event> {
-  const parts = await toGenAIParts(msg.parts);
+): Event {
+  const parts = toGenAIParts(msg.parts);
   const event = createEvent({
     invocationId,
     author: msg.role === ROLE_USER ? ROLE_USER : agentName,
@@ -166,18 +154,18 @@ async function messageToEvent(
   return event;
 }
 
-async function artifactUpdateToEvent(
+function artifactUpdateToEvent(
   event: TaskArtifactUpdateEvent,
   invocationId: string,
   agentName: string,
-): Promise<Event | undefined> {
+): Event | undefined {
   const partsToConvert = event.artifact?.parts || [];
 
   if (partsToConvert.length === 0) {
     return undefined;
   }
 
-  const parts = await toGenAIParts(partsToConvert);
+  const parts = toGenAIParts(partsToConvert);
 
   const sessionEvent = createEvent({
     invocationId,
@@ -203,11 +191,11 @@ async function artifactUpdateToEvent(
   return sessionEvent;
 }
 
-async function finalTaskStatusUpdateToEvent(
+function finalTaskStatusUpdateToEvent(
   update: TaskStatusUpdateEvent,
   invocationId: string,
   agentName: string,
-): Promise<Event | undefined> {
+): Event | undefined {
   const event = createEvent({
     invocationId,
     author: agentName,
@@ -215,7 +203,7 @@ async function finalTaskStatusUpdateToEvent(
 
   let parts: Part[] = [];
   if (update.status.message) {
-    parts = await toGenAIParts(update.status.message.parts);
+    parts = toGenAIParts(update.status.message.parts);
   }
 
   if (update.status.state === 'failed' && parts.length === 1 && parts[0].text) {
@@ -238,11 +226,11 @@ async function finalTaskStatusUpdateToEvent(
   return event;
 }
 
-async function taskToEvent(
+function taskToEvent(
   task: Task,
   invocationId: string,
   agentName: string,
-): Promise<Event | undefined> {
+): Event | undefined {
   const event = createEvent({
     invocationId,
     author: agentName,
@@ -255,7 +243,7 @@ async function taskToEvent(
   if (task.artifacts) {
     for (const artifact of task.artifacts) {
       if (artifact.parts) {
-        const artifactParts = await toGenAIParts(artifact.parts);
+        const artifactParts = toGenAIParts(artifact.parts);
         parts = parts.concat(artifactParts);
         longRunningToolIds = longRunningToolIds.concat(
           getLongRunningToolIDs(artifact.parts, artifactParts),
@@ -266,7 +254,7 @@ async function taskToEvent(
 
   // Status Message
   if (task.status?.message) {
-    const msgParts = await toGenAIParts(task.status.message.parts);
+    const msgParts = toGenAIParts(task.status.message.parts);
 
     if (
       task.status.state === 'failed' &&
@@ -304,37 +292,6 @@ async function taskToEvent(
   event.turnComplete = isTerminal;
 
   return event;
-}
-
-// Helpers
-
-export function toGenAIParts(a2aParts: A2APart[]): Part[] {
-  const genaiParts: Part[] = [];
-  for (const p of a2aParts) {
-    if (p.kind === 'text') {
-      genaiParts.push({text: p.text});
-    } else if (p.kind === 'file') {
-      if ('bytes' in p.file) {
-        genaiParts.push({
-          inlineData: {data: p.file.bytes, mimeType: p.file.mimeType || ''},
-        });
-      } else if ('uri' in p.file) {
-        genaiParts.push({
-          fileData: {fileUri: p.file.uri, mimeType: p.file.mimeType || ''},
-        });
-      }
-    } else if (p.kind === 'data') {
-      const data = p.data as Record<string, unknown>;
-      if (data.functionCall) genaiParts.push({functionCall: data.functionCall});
-      else if (data.functionResponse)
-        genaiParts.push({functionResponse: data.functionResponse});
-      else if (data.executableCode)
-        genaiParts.push({executableCode: data.executableCode});
-      else if (data.codeExecutionResult)
-        genaiParts.push({codeExecutionResult: data.codeExecutionResult});
-    }
-  }
-  return genaiParts;
 }
 
 function processA2AMeta(

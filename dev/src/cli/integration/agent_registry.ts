@@ -4,7 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {BaseAgent, LlmAgent} from '@google/adk';
+import {
+  BaseAgent,
+  LlmAgent,
+  LoopAgent,
+  ParallelAgent,
+  SequentialAgent,
+} from '@google/adk';
 import {YamlAgentConfig} from '../../conformance/yaml_agent_loader.js';
 import {IntegrationRegistry} from './integration_registry.js';
 
@@ -37,11 +43,17 @@ export class AgentRegistry {
   }
 
   private instantiateAgent(name: string, config: YamlAgentConfig): BaseAgent {
+    console.log(
+      'Instantiating ',
+      name,
+      'of class',
+      config.agentClass ?? 'LlmAgent',
+    );
+
     if (this.instantiating.has(name)) {
       throw new Error(`Circular dependency detected for agent ${name}`);
     }
     this.instantiating.add(name);
-    console.log('Inflating ', name);
 
     try {
       const beforeAgentCallbacks = config.beforeAgentCallbacks?.map(
@@ -82,7 +94,15 @@ export class AgentRegistry {
         return subAgent;
       });
 
-      const agent = new LlmAgent({
+      const tools = config.toolsConfiguration?.map((toolConfig) => {
+        const tool = this.integrationRegistry.getTool(toolConfig.name);
+        if (!tool) {
+          throw new Error(`Tool ${toolConfig.name} not found in registry`);
+        }
+        return tool;
+      });
+
+      const options = {
         name: config.name,
         model: config.model,
         description: config.description,
@@ -90,7 +110,33 @@ export class AgentRegistry {
         beforeAgentCallback: beforeAgentCallbacks ?? [],
         afterAgentCallback: afterAgentCallbacks ?? [],
         subAgents: subAgents ?? [],
-      });
+        tools: tools ?? [],
+        disallowTransferToParent: config.disallowTransferToParent === 'true',
+        disallowTransferToPeers: config.disallowTransferToPeers === 'true',
+        temperature: config.generateContentConfig?.temperature,
+      };
+
+      let agent: BaseAgent;
+      switch (config.agentClass) {
+        case 'LoopAgent':
+          agent = new LoopAgent({
+            ...options,
+            maxIterations: config.maxIterations
+              ? parseInt(config.maxIterations, 10)
+              : undefined,
+          });
+          break;
+        case 'ParallelAgent':
+          agent = new ParallelAgent(options);
+          break;
+        case 'SequentialAgent':
+          agent = new SequentialAgent(options);
+          break;
+        case 'LlmAgent':
+        default:
+          agent = new LlmAgent(options);
+          break;
+      }
 
       this.registerAgent(name, agent);
       return agent;

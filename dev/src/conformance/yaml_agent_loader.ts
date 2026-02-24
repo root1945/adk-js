@@ -125,10 +125,24 @@ export class BatchYamlAgentLoader {
       const agent = camelcaseKeys(parse(content), {
         deep: true,
       }) as YamlAgentConfig;
+
+      // Make agent names unique by including relative file path from given root dir
       const relativePath = path.relative(this.directory, filePath);
       const parsedPath = path.parse(relativePath);
       const name = path.join(parsedPath.dir, parsedPath.name);
       agents.set(name, agent);
+    }
+
+    // Update subagent to correctly point to the sibling file names
+    for (const [name, agent] of agents) {
+      if (agent.subAgents) {
+        for (const subAgent of agent.subAgents) {
+          const dir = path.dirname(name);
+          const subAgentPath = path.join(dir, subAgent.configPath);
+          const parsed = path.parse(subAgentPath);
+          subAgent.configPath = path.join(parsed.dir, parsed.name);
+        }
+      }
     }
 
     return agents;

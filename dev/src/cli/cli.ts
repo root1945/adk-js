@@ -399,7 +399,11 @@ CONFORMANCE_COMMAND.command('conformance')
     console.log('Registering agents');
     const agentRegistry = new AgentRegistry(registry);
     for (const [name, agentConfig] of agentConfigs) {
-      agentRegistry.registerAgentFromConfig(name, agentConfig);
+      agentRegistry.registerAgentConfig(name, agentConfig);
+    }
+    // Force instantiation of all agents to ensure they are valid
+    for (const name of agentConfigs.keys()) {
+      agentRegistry.getAgent(name);
     }
     console.log(agentRegistry.summary());
   });

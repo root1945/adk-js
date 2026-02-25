@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import {LlmRequest, LlmResponse, Session} from '@google/adk';
+import {FunctionCall} from '@google/genai';
+
 export interface StringPart {
   text?: string;
 }
@@ -43,4 +46,34 @@ export interface TestSpec {
   initialState?: Record<string, unknown>;
   // Sequence of user messages to send to the agent during test execution.
   userMessages?: UserMessage[];
+}
+
+export interface LlmRecording {
+  llmRequest?: LlmRequest;
+  llmResponse?: LlmResponse;
+}
+
+export interface ToolRecording {
+  toolCall?: FunctionCall;
+  toolResponse?: FunctionResponse;
+}
+
+export interface Recording {
+  userMessageIndex: number;
+  agentName: string;
+
+  // only one of these will be filled in
+  llmRecording?: LlmRecording;
+  toolRecording?: ToolRecording;
+}
+
+export interface Recordings {
+  recordings: Recording[];
+}
+
+export interface TestInfo {
+  name: string;
+  spec: TestSpec;
+  session: Session;
+  recordings: Recordings;
 }

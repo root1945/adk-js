@@ -12,7 +12,7 @@ import {
 } from '@google/adk';
 import {Content} from '@google/genai';
 import {z} from 'zod';
-import {IntegrationRegistry} from '../cli/integration/integration_registry.js';
+import {IntegrationRegistry} from '../integration/integration_registry.js';
 
 export function registerConformanceIntegrations(registry: IntegrationRegistry) {
   // Plugins

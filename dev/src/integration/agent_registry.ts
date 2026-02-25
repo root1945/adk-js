@@ -11,7 +11,7 @@ import {
   ParallelAgent,
   SequentialAgent,
 } from '@google/adk';
-import {YamlAgentConfig} from '../../conformance/yaml_agent_loader.js';
+import {YamlAgentConfig} from '../conformance/yaml_agent_loader.js';
 import {IntegrationRegistry} from './integration_registry.js';
 
 export class AgentRegistry {

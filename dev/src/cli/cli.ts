@@ -20,6 +20,8 @@ import * as path from 'path';
 import {registerConformanceIntegrations} from '../conformance/conformance_integrations.js';
 import {BatchYamlAgentLoader} from '../conformance/yaml_agent_loader.js';
 import {BatchYamlTestLoader} from '../conformance/yaml_test_loader.js';
+import {AgentRegistry} from '../integration/agent_registry.js';
+import {IntegrationRegistry} from '../integration/integration_registry.js';
 import {AdkApiServer} from '../server/adk_api_server.js';
 import {FileModuleType} from '../utils/agent_loader.js';
 import {getTempDir} from '../utils/file_utils.js';
@@ -27,8 +29,6 @@ import {version} from '../version.js';
 import {createAgent} from './cli_create.js';
 import {deployToCloudRun} from './cli_deploy.js';
 import {runAgent} from './cli_run.js';
-import {AgentRegistry} from './integration/agent_registry.js';
-import {IntegrationRegistry} from './integration/integration_registry.js';
 
 dotenv.config({quiet: true});
 

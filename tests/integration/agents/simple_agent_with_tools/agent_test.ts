@@ -5,8 +5,13 @@
  */
 
 import {Event} from '@google/adk';
+import * as path from 'path';
 import {describe, it} from 'vitest';
-import {RawGenerateContentResponse, runTestCase} from '../test_case_utils.js';
+import {
+  RawGenerateContentResponse,
+  runTestCase,
+  runTestCaseAgainstApiServer,
+} from '../test_case_utils.js';
 import {rootAgent} from './agent.js';
 import turn1ExpectedEvents from './events_1.json' with {type: 'json'};
 import turn2ExpectedEvents from './events_2.json' with {type: 'json'};
@@ -30,5 +35,12 @@ const testCase = {
 describe('Simple LlmAgent with tools', () => {
   it('should process model response and produce events', async () => {
     await runTestCase(testCase);
+  });
+
+  it('should run agent through "adk cli api_server" command and persist state in SQLite', async () => {
+    const appName = 'mock_agent';
+    const agentDir = path.join(import.meta.dirname, 'agent.ts');
+
+    await runTestCaseAgainstApiServer(testCase, agentDir, appName);
   });
 });

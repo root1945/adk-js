@@ -95,6 +95,10 @@ export class DatabaseSessionService extends BaseSessionService {
     this.initialized = true;
   }
 
+  async close() {
+    await this.orm?.close();
+  }
+
   async createSession({
     appName,
     userId,

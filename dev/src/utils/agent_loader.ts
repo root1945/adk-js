@@ -294,8 +294,8 @@ export class AgentLoader {
   private async loadAgentFromFile(file: FileMetadata): Promise<void> {
     try {
       const agentFile = new AgentFile(file.path, this.options);
-      await agentFile.load();
-      this.preloadedAgents[file.name] = agentFile;
+      const agent = await agentFile.load();
+      this.preloadedAgents[agent.name] = agentFile;
     } catch (e) {
       if (e instanceof AgentFileLoadingError) {
         return;
@@ -316,8 +316,8 @@ export class AgentLoader {
 
     try {
       const agentFile = new AgentFile(possibleAgentJsFile.path, this.options);
-      await agentFile.load();
-      this.preloadedAgents[dir.name] = agentFile;
+      const agent = await agentFile.load();
+      this.preloadedAgents[agent.name] = agentFile;
     } catch (e) {
       if (e instanceof AgentFileLoadingError) {
         return;

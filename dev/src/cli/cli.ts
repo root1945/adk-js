@@ -19,6 +19,7 @@ import * as os from 'os';
 import * as path from 'path';
 import {registerConformanceIntegrations} from '../conformance/conformance_integrations.js';
 import {BatchYamlAgentLoader} from '../conformance/yaml_agent_loader.js';
+import {BatchYamlTestLoader} from '../conformance/yaml_test_loader.js';
 import {AdkApiServer} from '../server/adk_api_server.js';
 import {FileModuleType} from '../utils/agent_loader.js';
 import {getTempDir} from '../utils/file_utils.js';
@@ -384,6 +385,11 @@ CONFORMANCE_COMMAND.command('conformance')
     'Directory of conformance test agent definitions. Recursively searched for .yaml files with agent definitions.',
     process.cwd(),
   )
+  .option(
+    '--tests_dir [dir]',
+    'Directory of conformance test definitions. Recursively searched for .yaml files with test definitions.',
+    process.cwd(),
+  )
   .action(async (options: Record<string, string>) => {
     console.log(options['agents_dir']);
     const agentConfigs = await new BatchYamlAgentLoader(
@@ -406,6 +412,12 @@ CONFORMANCE_COMMAND.command('conformance')
       agentRegistry.getAgent(name);
     }
     console.log(agentRegistry.summary());
+
+    console.log(options['tests_dir']);
+    const testSpecs = await new BatchYamlTestLoader(
+      options['tests_dir'],
+    ).load();
+    console.log(testSpecs.size, 'tests found');
   });
 
 try {

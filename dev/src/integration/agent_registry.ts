@@ -11,6 +11,7 @@ import {
   ParallelAgent,
   SequentialAgent,
 } from '@google/adk';
+import * as path from 'node:path';
 import {YamlAgentConfig} from './agent_types.js';
 import {IntegrationRegistry} from './integration_registry.js';
 
@@ -38,12 +39,12 @@ export class AgentRegistry {
     return undefined;
   }
 
-  // Returns an agent based on the original, unqualified short name.
+  // Returns an agent based on the last directory name.
   // If there are multiple agents with the same short name, this will
   // return an arbitrary one.
   getAgentByShortName(shortName: string): BaseAgent | undefined {
-    for (const [name, agent] of this.agents) {
-      if (agent.name === shortName) {
+    for (const name of this.agents.keys()) {
+      if (path.basename(path.dirname(name)) === shortName) {
         return this.agents.get(name);
       }
     }

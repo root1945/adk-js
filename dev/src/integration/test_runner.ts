@@ -167,7 +167,9 @@ export class TestRunner {
 
   private userMessageToContent(msg: UserMessage): Content {
     if (msg.content) {
-      return msg.content as Content;
+      const content = msg.content as Content;
+      content.role = 'user';
+      return content;
     }
     if (msg.text) {
       return {role: 'user', parts: [{text: msg.text}]};

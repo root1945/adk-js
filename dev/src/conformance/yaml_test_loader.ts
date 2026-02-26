@@ -20,7 +20,6 @@ export class BatchYamlTestLoader {
   constructor(private readonly directory: string) {}
 
   async load(): Promise<Map<string, TestInfo>> {
-    console.log('Loading tests from ', this.directory);
     // Tests have 3 parts:
     //
     // 1. spec.yaml - the defined test config and input

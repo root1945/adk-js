@@ -83,15 +83,13 @@ export function registerConformanceIntegrations(registry: IntegrationRegistry) {
 export function shortcutAgentExecution(
   callbackContext: CallbackContext,
 ): Content | undefined {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const state = callbackContext.state as Record<string, any>;
-  if (state['conversation_limit_reached']) {
+  if (callbackContext.state.get('conversationLimitReached') === 'True') {
     return {
       role: 'model',
       parts: [{text: 'Sorry, you have reached the limit of the conversation.'}],
     };
   } else {
-    state['conversation_limit_reached'] = 'True';
+    callbackContext.state.set('conversationLimitReached', 'True');
     return undefined;
   }
 }
@@ -99,36 +97,30 @@ export function shortcutAgentExecution(
 export async function beforeAgentCallback1(
   callbackContext: CallbackContext,
 ): Promise<Content | undefined> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const state = callbackContext.state as Record<string, any>;
-  state['before_agent_callback_state_key'] = 'value1';
+  callbackContext.state.set('beforeAgentCallbackStateKey', 'value1');
   return undefined;
 }
 
 export async function beforeAgentCallback2(
   callbackContext: CallbackContext,
 ): Promise<Content | undefined> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const state = callbackContext.state as Record<string, any>;
-  state['before_agent_callback_state_key'] += '+value2';
+  const current = callbackContext.state.get('beforeAgentCallbackStateKey');
+  callbackContext.state.set('beforeAgentCallbackStateKey', current + '+value2');
   return undefined;
 }
 
 export async function afterAgentCallback1(
   callbackContext: CallbackContext,
 ): Promise<Content | undefined> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const state = callbackContext.state as Record<string, any>;
-  state['after_agent_callback_state_key'] = 'value1';
+  callbackContext.state.set('afterAgentCallbackStateKey', 'value1');
   return undefined;
 }
 
 export async function afterAgentCallback2(
   callbackContext: CallbackContext,
 ): Promise<Content | undefined> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const state = callbackContext.state as Record<string, any>;
-  state['after_agent_callback_state_key'] += '+value2';
+  const current = callbackContext.state.get('afterAgentCallbackStateKey');
+  callbackContext.state.set('afterAgentCallbackStateKey', current + '+value2');
   return undefined;
 }
 

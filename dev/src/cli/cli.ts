@@ -22,6 +22,7 @@ import {BatchYamlAgentLoader} from '../conformance/yaml_agent_loader.js';
 import {BatchYamlTestLoader} from '../conformance/yaml_test_loader.js';
 import {AgentRegistry} from '../integration/agent_registry.js';
 import {IntegrationRegistry} from '../integration/integration_registry.js';
+import {TestRunner} from '../integration/test_runner.js';
 import {AdkApiServer} from '../server/adk_api_server.js';
 import {FileModuleType} from '../utils/agent_loader.js';
 import {getTempDir} from '../utils/file_utils.js';
@@ -391,33 +392,42 @@ CONFORMANCE_COMMAND.command('conformance')
     process.cwd(),
   )
   .action(async (options: Record<string, string>) => {
-    console.log(options['agents_dir']);
+    console.log(`Loading agents from ${options['agents_dir']}`);
     const agentConfigs = await new BatchYamlAgentLoader(
       options['agents_dir'],
     ).load();
-    console.log(agentConfigs.size);
+    console.log(agentConfigs.size, 'agents found');
 
-    console.log('Registering conformance integrations...');
+    console.log('Registering conformance integrations.');
     const registry = new IntegrationRegistry();
     registerConformanceIntegrations(registry);
     console.log(registry.summary());
 
-    console.log('Registering agents');
+    console.log('Registering agents.');
     const agentRegistry = new AgentRegistry(registry);
     for (const [name, agentConfig] of agentConfigs) {
       agentRegistry.registerAgentConfig(name, agentConfig);
     }
+    console.log(agentRegistry.summary());
+
+    console.log('Instantiating agents to check validity.');
     // Force instantiation of all agents to ensure they are valid
     for (const name of agentConfigs.keys()) {
       agentRegistry.getAgent(name);
     }
-    console.log(agentRegistry.summary());
 
-    console.log(options['tests_dir']);
+    console.log(`Loading tests from ${options['tests_dir']}`);
     const testSpecs = await new BatchYamlTestLoader(
       options['tests_dir'],
     ).load();
-    console.log(testSpecs.size, 'tests found');
+    console.log(testSpecs.size, 'tests found.');
+
+    console.log('Running tests.');
+    const runner = new TestRunner(agentRegistry);
+    for (const [name, testInfo] of testSpecs) {
+      console.log('Running test', name);
+      await runner.run(testInfo);
+    }
   });
 
 try {

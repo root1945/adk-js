@@ -38,6 +38,19 @@ export class AgentRegistry {
     return undefined;
   }
 
+  // Returns an agent based on the original, unqualified short name.
+  // If there are multiple agents with the same short name, this will
+  // return an arbitrary one.
+  getAgentByShortName(shortName: string): BaseAgent | undefined {
+    for (const [name, agent] of this.agents) {
+      if (agent.name === shortName) {
+        return this.agents.get(name);
+      }
+    }
+
+    return undefined;
+  }
+
   registerAgentConfig(name: string, config: YamlAgentConfig) {
     this.configs.set(name, config);
   }

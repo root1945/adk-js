@@ -6,13 +6,14 @@
 
 import {
   BaseAgent,
+  FunctionTool,
   LlmAgent,
   LoopAgent,
   ParallelAgent,
   SequentialAgent,
 } from '@google/adk';
 import * as path from 'node:path';
-import {YamlAgentConfig} from './agent_types.js';
+import {LongRunningFunctionToolArgs, YamlAgentConfig} from './agent_types.js';
 import {IntegrationRegistry} from './integration_registry.js';
 
 const BUILTIN_TOOLS = [
@@ -65,9 +66,18 @@ export class AgentRegistry {
     this.configs.set(name, config);
   }
 
+  private findToolOrThrow(name: string): FunctionTool<undefined> {
+    const tool = this.integrationRegistry.getTool(name);
+    if (!tool) {
+      console.log('Tool not found in registry', name);
+      throw new Error(`Tool ${name} not found in registry`);
+    }
+    return tool;
+  }
+
   private instantiateAgent(name: string, config: YamlAgentConfig): BaseAgent {
     console.log(
-      'Instantiating ',
+      'Instantiating',
       name,
       'of class',
       config.agentClass ?? 'LlmAgent',
@@ -124,12 +134,13 @@ export class AgentRegistry {
             return undefined;
           }
 
-          const tool = this.integrationRegistry.getTool(toolConfig.name);
-          if (!tool) {
-            console.log('Tool not found in registry', toolConfig.name);
-            throw new Error(`Tool ${toolConfig.name} not found in registry`);
+          if (toolConfig.name == 'LongRunningFunctionTool') {
+            const args = toolConfig.args as LongRunningFunctionToolArgs;
+            const subTool = this.findToolOrThrow(args!.func);
+            return subTool;
           }
-          return tool;
+
+          return this.findToolOrThrow(toolConfig.name);
         })
         // remove entries for built-in tools
         .filter((tool) => tool !== undefined);

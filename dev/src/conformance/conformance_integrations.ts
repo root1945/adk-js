@@ -8,6 +8,7 @@ import {
   BasePlugin,
   CallbackContext,
   FunctionTool,
+  LongRunningFunctionTool,
   SingleAgentCallback,
 } from '@google/adk';
 import {Content} from '@google/genai';
@@ -146,7 +147,7 @@ export const reimburse = new FunctionTool({
   },
 });
 
-export const askForApproval = new FunctionTool({
+export const askForApproval = new LongRunningFunctionTool({
   name: 'ask_for_approval',
   description: 'Ask for approval for the reimbursement.',
   parameters: z.object({

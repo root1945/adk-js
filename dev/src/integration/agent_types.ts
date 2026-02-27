@@ -67,13 +67,8 @@ export interface ExampleToolArgs {
   examples: ExampleConfig[];
 }
 
-export interface LroFuncConfig {
-  type: string;
-  description: string;
-}
-
 export interface LongRunningFunctionToolArgs {
-  func: LroFuncConfig;
+  func: string;
 }
 
 export interface ToolsConfiguration {

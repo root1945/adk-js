@@ -3,11 +3,13 @@
  * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
-
 import {
   BaseAgent,
   BaseLlm,
   BaseLlmConnection,
+  BasePlugin,
+  BaseTool,
+  CallbackContext,
   Event,
   InMemorySessionService,
   isLlmAgent,
@@ -15,6 +17,7 @@ import {
   LlmResponse,
   Runner,
   Session,
+  ToolContext,
 } from '@google/adk';
 import {
   Blob,
@@ -29,6 +32,7 @@ import {
   VideoMetadata,
 } from '@google/genai';
 import * as assert from 'node:assert';
+//import util from 'node:util';
 import {AgentRegistry} from './agent_registry.js';
 import {Recording, TestInfo, UserMessage} from './test_types.js';
 
@@ -37,38 +41,65 @@ const SKIPPED_TESTS = [
   {name: 'workflow/loop_001', reason: 'ExitLoopTool is not implemented yet'},
 ];
 
-class ReplayModel extends BaseLlm {
-  constructor(
-    private agentName: string,
-    private recordings: Recording[],
-    private context: {userMessageIndex: number},
-  ) {
-    super({model: 'replay-model'});
+class DummyLlm extends BaseLlm {
+  constructor() {
+    super({model: 'dummy-llm'});
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   connect(llmRequest: LlmRequest): Promise<BaseLlmConnection> {
-    throw new Error('Method not implemented.');
+    throw new Error(
+      'DummyLlm.connect should not be called during replay tests.',
+    );
   }
 
+  /* eslint-disable @typescript-eslint/no-unused-vars, require-yield */
   async *generateContentAsync(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     request: LlmRequest,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     stream?: boolean,
   ): AsyncGenerator<LlmResponse, void, void> {
+    throw new Error(
+      `DummyLlm.generateContentAsync should not be called during replay tests. request: ${JSON.stringify(
+        request,
+      )}`,
+    );
+  }
+  /* eslint-ensable @typescript-eslint/no-unused-vars, require-yield */
+}
+
+class ReplayPlugin extends BasePlugin {
+  constructor(
+    private recordings: Recording[],
+    private context: {userMessageIndex: number},
+  ) {
+    super('replay-plugin');
+  }
+
+  override async beforeModelCallback({
+    callbackContext,
+  }: {
+    callbackContext: CallbackContext;
+    llmRequest: LlmRequest;
+  }): Promise<LlmResponse | undefined> {
+    console.log('ReplayPlugin.beforeModelCallback');
+    console.log(this.context);
+    //console.log(util.inspect(this.recordings, {depth: null, colors: true}));
+    console.log(this.recordings);
+    console.log(callbackContext.agentName);
+    const agentName = callbackContext.agentName;
     const index = this.recordings.findIndex(
       (r) =>
         r.userMessageIndex === this.context.userMessageIndex &&
-        r.agentName === this.agentName &&
+        r.agentName === agentName &&
         r.llmRecording?.llmResponse &&
+        // replay internal flag to mark event as consumed
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         !(r as any)._consumed,
     );
 
     if (index === -1) {
       throw new Error(
-        `No recording found for agent ${this.agentName} at turn ${this.context.userMessageIndex}`,
+        `No LLM recording found for agent ${agentName} at turn ${this.context.userMessageIndex}`,
       );
     }
 
@@ -76,7 +107,47 @@ class ReplayModel extends BaseLlm {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (rec as any)._consumed = true;
 
-    yield rec.llmRecording!.llmResponse!;
+    return rec.llmRecording!.llmResponse!;
+  }
+
+  override async beforeToolCallback(params: {
+    tool: BaseTool;
+    toolArgs: Record<string, unknown>;
+    toolContext: ToolContext;
+  }): Promise<Record<string, unknown> | undefined> {
+    console.log('ReplayPlugin.beforeToolCallback');
+    console.log(this.context);
+    //console.log(util.inspect(this.recordings, {depth: null, colors: true}));
+    console.log(this.recordings);
+    console.log(params.toolContext.agentName);
+    const agentName = params.toolContext.invocationContext.agent.name;
+    const toolName = params.tool.name;
+
+    const index = this.recordings.findIndex(
+      (r) =>
+        r.userMessageIndex === this.context.userMessageIndex &&
+        r.agentName === agentName &&
+        r.toolRecording?.toolCall?.name === toolName &&
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        !(r as any)._consumed,
+    );
+
+    if (index === -1) {
+      throw new Error(
+        `No tool recording found for agent ${agentName}, tool ${toolName} at turn ${this.context.userMessageIndex}`,
+      );
+    }
+
+    const rec = this.recordings[index];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (rec as any)._consumed = true;
+
+    // The response from a tool call is a plain object.
+    const response = rec.toolRecording!.toolResponse!.response;
+    if (response instanceof Map) {
+      return Object.fromEntries(response);
+    }
+    return response;
   }
 }
 
@@ -108,13 +179,14 @@ export class TestRunner {
       JSON.stringify(testInfo.recordings.recordings),
     );
     const context = {userMessageIndex: 0};
+    this.injectDummyLlm(agent);
 
-    this.injectReplayModel(agent, recordings, context);
-
+    const replayPlugin = new ReplayPlugin(recordings, context);
     const sessionService = new InMemorySessionService();
     const runner = new Runner({
       agent,
       sessionService,
+      plugins: [replayPlugin],
       appName: 'test-runner',
     });
 
@@ -128,7 +200,7 @@ export class TestRunner {
       sessionId,
     });
 
-    const userMessages = testInfo.spec.userMessages || [];
+    const userMessages = testInfo.spec.userMessages!;
 
     for (let i = 0; i < userMessages.length; i++) {
       context.userMessageIndex = i;
@@ -162,36 +234,31 @@ export class TestRunner {
     return false;
   }
 
-  private injectReplayModel(
-    agent: BaseAgent,
-    recordings: Recording[],
-    context: {userMessageIndex: number},
-  ) {
+  private injectDummyLlm(agent: BaseAgent) {
     if (isLlmAgent(agent)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (agent as any).model = new ReplayModel(agent.name, recordings, context);
+      agent.model = new DummyLlm();
     }
 
     // Traverse subagents
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const subAgents = (agent as any).subAgents as BaseAgent[];
+    const subAgents = agent.subAgents;
     if (subAgents && Array.isArray(subAgents)) {
       for (const sub of subAgents) {
-        this.injectReplayModel(sub, recordings, context);
+        this.injectDummyLlm(sub);
       }
     }
   }
 
   private userMessageToContent(msg: UserMessage): Content {
     if (msg.content) {
-      const content = msg.content as Content;
+      const content = msg.content;
       content.role = 'user';
       return content;
     }
     if (msg.text) {
       return {role: 'user', parts: [{text: msg.text}]};
     }
-    return {role: 'user', parts: []};
+
+    throw new Error('Either Content text or content field is required');
   }
 
   private validateSession(actual: Session, expected: Session) {

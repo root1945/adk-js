@@ -5,7 +5,7 @@
  */
 
 import {LlmRequest, LlmResponse, Session} from '@google/adk';
-import {FunctionCall} from '@google/genai';
+import {Content, FunctionCall} from '@google/genai';
 
 export interface StringPart {
   text?: string;
@@ -13,7 +13,7 @@ export interface StringPart {
 
 export interface FunctionResponse {
   // The function response can be any kind of object
-  response: Map<string, unknown>;
+  response: Record<string, unknown>;
   id: string;
   name: string;
 }
@@ -24,8 +24,9 @@ export interface FunctionResponsePart {
 
 export type ContentPart = StringPart | FunctionResponsePart;
 
-export interface Content {
+export interface Contentsad {
   parts: ContentPart[];
+  role: string;
 }
 
 // The User message to replay. Either text or content will be filled in

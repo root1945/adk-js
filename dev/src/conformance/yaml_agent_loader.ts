@@ -9,7 +9,7 @@ import fg from 'fast-glob';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import {parse} from 'yaml';
-import {YamlAgentConfig} from '../integration/agent_types.js';
+import {AgentToolArgs, YamlAgentConfig} from '../integration/agent_types.js';
 
 /**
  * BatchYamlAgentLoader will recursively search the directory given
@@ -42,16 +42,44 @@ export class BatchYamlAgentLoader {
 
     // Update subagent to correctly point to the sibling file names
     for (const [name, agent] of agents) {
+      // Rewrite subagents if used
       if (agent.subAgents) {
         for (const subAgent of agent.subAgents) {
-          const dir = path.dirname(name);
-          const subAgentPath = path.join(dir, subAgent.configPath);
-          const parsed = path.parse(subAgentPath);
-          subAgent.configPath = path.join(parsed.dir, parsed.name);
+          subAgent.configPath = this.rewriteConfigPath(
+            name,
+            subAgent.configPath,
+          );
+        }
+      }
+
+      // Also rewrite subagent names if used as a tool
+      if (agent.tools) {
+        for (const tool of agent.tools) {
+          if (tool.name !== 'AgentTool') {
+            continue;
+          }
+
+          const args = tool.args as AgentToolArgs;
+          if (args.agent?.configPath) {
+            args.agent.configPath = this.rewriteConfigPath(
+              name,
+              args.agent.configPath,
+            );
+          }
         }
       }
     }
 
     return agents;
+  }
+
+  private rewriteConfigPath(
+    baseAgentName: string,
+    relativeConfigPath: string,
+  ): string {
+    const dir = path.dirname(baseAgentName);
+    const agentPath = path.join(dir, relativeConfigPath);
+    const parsed = path.parse(agentPath);
+    return path.join(parsed.dir, parsed.name);
   }
 }

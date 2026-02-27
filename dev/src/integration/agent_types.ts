@@ -26,6 +26,10 @@ export interface AgentReference {
   configPath: string;
 }
 
+export interface AgentToolArgs {
+  agent: AgentReference;
+}
+
 export interface StdioConnectionParams {
   timeout: number;
 }
@@ -74,8 +78,8 @@ export interface LongRunningFunctionToolArgs {
 
 export interface ToolsConfiguration {
   name: string;
-  args:
-    | AgentReference
+  args?:
+    | AgentToolArgs
     | McpToolsetArgs
     | ExampleToolArgs
     | LongRunningFunctionToolArgs;
@@ -95,5 +99,5 @@ export interface YamlAgentConfig {
   beforeAgentCallbacks?: CallbackInfo[];
   afterAgentCallbacks?: CallbackInfo[];
   subAgents?: AgentReference[];
-  toolsConfiguration?: ToolsConfiguration[];
+  tools?: ToolsConfiguration[];
 }

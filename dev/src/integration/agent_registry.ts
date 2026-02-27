@@ -15,6 +15,8 @@ import * as path from 'node:path';
 import {YamlAgentConfig} from './agent_types.js';
 import {IntegrationRegistry} from './integration_registry.js';
 
+const BUILTIN_TOOLS = ['google_search', 'url_context', 'google_maps_grounding'];
+
 export class AgentRegistry {
   private agents = new Map<string, BaseAgent>();
   private configs = new Map<string, YamlAgentConfig>();
@@ -43,9 +45,9 @@ export class AgentRegistry {
   // If there are multiple agents with the same short name, this will
   // return an arbitrary one.
   getAgentByShortName(shortName: string): BaseAgent | undefined {
-    for (const name of this.agents.keys()) {
+    for (const name of this.configs.keys()) {
       if (path.basename(path.dirname(name)) === shortName) {
-        return this.agents.get(name);
+        return this.getAgent(name);
       }
     }
 
@@ -108,13 +110,27 @@ export class AgentRegistry {
         return subAgent;
       });
 
-      const tools = config.toolsConfiguration?.map((toolConfig) => {
-        const tool = this.integrationRegistry.getTool(toolConfig.name);
-        if (!tool) {
-          throw new Error(`Tool ${toolConfig.name} not found in registry`);
-        }
-        return tool;
-      });
+      console.log('config.tools', config.tools);
+      const tools = config.tools
+        ?.map((toolConfig) => {
+          console.log('Loading tool', toolConfig.name);
+
+          // Built in tools are skipped
+          if (BUILTIN_TOOLS.includes(toolConfig.name)) {
+            return undefined;
+          }
+
+          const tool = this.integrationRegistry.getTool(toolConfig.name);
+          if (!tool) {
+            console.log('Tool not found in registry', toolConfig.name);
+            throw new Error(`Tool ${toolConfig.name} not found in registry`);
+          }
+          return tool;
+        })
+        // remove entries for built-in tools
+        .filter((tool) => tool !== undefined);
+
+      console.log('tools', tools);
 
       const options = {
         name: config.name,

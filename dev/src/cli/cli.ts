@@ -432,11 +432,11 @@ export function createProgram(): Command {
       }
       console.log(agentRegistry.summary());
 
-      console.log('Instantiating agents to check validity.');
-      // Force instantiation of all agents to ensure they are valid
-      for (const name of agentConfigs.keys()) {
-        agentRegistry.getAgent(name);
-      }
+      // console.log('Instantiating agents to check validity.');
+      // // Force instantiation of all agents to ensure they are valid
+      // for (const name of agentConfigs.keys()) {
+      //   agentRegistry.getAgent(name);
+      // }
 
       console.log(`Loading tests from ${options['tests_dir']}`);
       const testSpecs = await new BatchYamlTestLoader(
@@ -445,11 +445,27 @@ export function createProgram(): Command {
       console.log(testSpecs.size, 'tests found.');
 
       console.log('Running tests.');
+      const successfulTests = [];
+      const failedTests = [];
       const runner = new TestRunner(agentRegistry);
       for (const [name, testInfo] of testSpecs) {
         console.log('Running test', name);
-        await runner.run(testInfo);
+        try {
+          await runner.run(testInfo);
+          successfulTests.push(name);
+          console.log('Test passed.');
+        } catch (_: unknown) {
+          failedTests.push(name);
+          console.error('Test failed.');
+        }
       }
+
+      console.log(
+        `${successfulTests.length} tests passed, ${failedTests.length} tests failed.`,
+      );
+
+      console.log('Successfull tests:', successfulTests.join(', '));
+      console.log('Failed tests:', failedTests.join(', '));
     });
 
   return program;

@@ -56,17 +56,17 @@ export function registerConformanceIntegrations(registry: IntegrationRegistry) {
   }
 
   // Tools
-  const tools: FunctionTool[] = [
-    reimburse,
-    askForApproval,
-    searchFlights,
-    calculateTripCost,
-    validateEmail,
-    getUserId,
-    createBooking,
+  const tools: {name: string; tool: FunctionTool}[] = [
+    {name: 'tools_agent_009.tools.reimburse', tool: reimburse},
+    {name: 'tools_agent_009.tools.askForApproval', tool: askForApproval},
+    {name: 'tools_agent_004.tools.searchFlights', tool: searchFlights},
+    {name: 'tools_agent_004.tools.calculateTripCost', tool: calculateTripCost},
+    {name: 'tools_agent_002.tools.validateEmail', tool: validateEmail},
+    {name: 'tools_agent_002.tools.getUserId', tool: getUserId},
+    {name: 'tools_agent_002.tools.createBooking', tool: createBooking},
   ];
-  for (const tool of tools) {
-    registry.registerTool(tool.name, tool);
+  for (const {name, tool} of tools) {
+    registry.registerTool(name, tool);
   }
 }
 

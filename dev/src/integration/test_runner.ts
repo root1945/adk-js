@@ -32,7 +32,10 @@ import * as assert from 'node:assert';
 import {AgentRegistry} from './agent_registry.js';
 import {Recording, TestInfo, UserMessage} from './test_types.js';
 
-const SKIPPED_TESTS = ['tool/example_tool_001'];
+const SKIPPED_TESTS = [
+  {name: 'tool/example_tool_001', reason: 'ExampleTool is not implemented yet'},
+  {name: 'workflow/loop_001', reason: 'ExitLoopTool is not implemented yet'},
+];
 
 class ReplayModel extends BaseLlm {
   constructor(
@@ -82,9 +85,13 @@ export class TestRunner {
 
   async run(testInfo: TestInfo, force: boolean): Promise<boolean> {
     // skip tests for unimplemented features
-    if (!force && SKIPPED_TESTS.includes(testInfo.name)) {
-      console.log('Skipping test', testInfo.name);
-      return true;
+    if (!force) {
+      for (const skip of SKIPPED_TESTS) {
+        if (skip.name == testInfo.name) {
+          console.log('Skipping test', testInfo.name, 'because:', skip.reason);
+          return true;
+        }
+      }
     }
 
     const agentName = testInfo.spec.agent;

@@ -6,9 +6,9 @@
 
 import {LlmAgent, SingleAgentCallback} from '@google/adk';
 import {beforeEach, describe, expect, it} from 'vitest';
-import {AgentRegistry} from '../../src/cli/integration/agent_registry.js';
-import {IntegrationRegistry} from '../../src/cli/integration/integration_registry.js';
-import {YamlAgentConfig} from '../../src/conformance/yaml_agent_loader.js';
+import {AgentRegistry} from '../../src/integration/agent_registry.js';
+import {YamlAgentConfig} from '../../src/integration/agent_types.js';
+import {IntegrationRegistry} from '../../src/integration/integration_registry.js';
 
 describe('AgentRegistry', () => {
   let integrationRegistry: IntegrationRegistry;
@@ -45,7 +45,7 @@ describe('AgentRegistry', () => {
       agentClass: 'LlmAgent',
     } as unknown as YamlAgentConfig;
 
-    agentRegistry.registerAgentFromConfig('config_agent', config);
+    agentRegistry.registerAgentConfig('config_agent', config);
     const retrieved = agentRegistry.getAgent('config_agent');
 
     expect(retrieved).toBeDefined();
@@ -75,7 +75,7 @@ describe('AgentRegistry', () => {
       afterAgentCallbacks: [{name: 'after_cb'}],
     } as unknown as YamlAgentConfig;
 
-    agentRegistry.registerAgentFromConfig('callback_agent', config);
+    agentRegistry.registerAgentConfig('callback_agent', config);
     const retrieved = agentRegistry.getAgent('callback_agent');
 
     expect(retrieved).toBeDefined();
@@ -91,9 +91,10 @@ describe('AgentRegistry', () => {
       beforeAgentCallbacks: [{name: 'missing_cb'}],
     } as unknown as YamlAgentConfig;
 
-    expect(() =>
-      agentRegistry.registerAgentFromConfig('bad_agent', config),
-    ).toThrow('BeforeAgentCallback missing_cb not found in registry');
+    agentRegistry.registerAgentConfig('bad_agent', config);
+    expect(() => agentRegistry.getAgent('bad_agent')).toThrow(
+      'BeforeAgentCallback missing_cb not found in registry',
+    );
   });
 
   it('should throw error if after callback is missing', () => {
@@ -105,9 +106,9 @@ describe('AgentRegistry', () => {
       agentClass: 'LlmAgent',
       afterAgentCallbacks: [{name: 'missing_cb'}],
     } as unknown as YamlAgentConfig;
-
-    expect(() =>
-      agentRegistry.registerAgentFromConfig('bad_agent', config),
-    ).toThrow('AfterAgentCallback missing_cb not found in registry');
+    agentRegistry.registerAgentConfig('bad_agent', config);
+    expect(() => agentRegistry.getAgent('bad_agent')).toThrow(
+      'AfterAgentCallback missing_cb not found in registry',
+    );
   });
 });

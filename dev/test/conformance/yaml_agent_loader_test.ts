@@ -137,7 +137,7 @@ describe('BatchYamlAgentLoader', () => {
       afterAgentCallbacks: [{name: 'afterCallback'}],
       subAgents: [
         {
-          configPath: '/path/to/subagent.yaml',
+          configPath: 'path/to/subagent',
         },
       ],
       toolsConfiguration: [

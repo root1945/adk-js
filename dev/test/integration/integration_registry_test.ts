@@ -7,7 +7,7 @@
 import {BasePlugin, FunctionTool} from '@google/adk';
 import {beforeEach, describe, expect, it} from 'vitest';
 import {SingleAgentCallback} from '../../../core/src/common.js';
-import {IntegrationRegistry} from '../../src/cli/integration/integration_registry.js';
+import {IntegrationRegistry} from '../../src/integration/integration_registry.js';
 
 describe('IntegrationRegistry', () => {
   let registry: IntegrationRegistry;

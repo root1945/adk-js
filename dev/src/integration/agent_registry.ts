@@ -41,12 +41,14 @@ export class AgentRegistry {
     return undefined;
   }
 
-  // Returns an agent based on the last directory name.
-  // If there are multiple agents with the same short name, this will
-  // return an arbitrary one.
-  getAgentByShortName(shortName: string): BaseAgent | undefined {
-    for (const name of this.configs.keys()) {
-      if (path.basename(path.dirname(name)) === shortName) {
+  // Returns the root agent based on the last directory name.
+  // if there are somehow more than one root agent in a directory, an arbitrary one is returned
+  getRootAgentByShortName(shortName: string): BaseAgent | undefined {
+    for (const [name, config] of this.configs) {
+      if (
+        path.basename(path.dirname(name)) === shortName &&
+        config.isRootAgent
+      ) {
         return this.getAgent(name);
       }
     }

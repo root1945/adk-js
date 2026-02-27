@@ -34,6 +34,8 @@ export interface UserMessage {
   text?: string;
   // The user message in types.Content.
   content?: Content;
+  // The state changes when running this user message
+  stateDelta?: Record<string, unknown>;
 }
 
 export interface TestSpec {

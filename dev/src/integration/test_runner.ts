@@ -83,7 +83,7 @@ export class TestRunner {
     // Use the "short name" in the specs. This could possibly break
     // if there is more than one agent with the same name. Full names
     // are qualified by the file path.
-    const agent = this.agentRegistry.getAgentByShortName(agentName);
+    const agent = this.agentRegistry.getRootAgentByShortName(agentName);
     if (!agent) {
       throw new Error(`Agent ${agentName} not found in registry`);
     }
@@ -268,9 +268,9 @@ interface FilteredPart {
 
 function filterPartFields(part: FilteredPart) {
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  delete (part as any).thought_signature;
-  delete (part as any).function_call;
-  delete (part as any).function_response;
+  delete (part as any).thoughtSignature;
+  delete (part as any).functionCall;
+  delete (part as any).functionResponse;
   /* eslint-enable @typescript-eslint/no-explicit-any */
 }
 

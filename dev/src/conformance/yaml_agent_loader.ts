@@ -33,6 +33,9 @@ export class BatchYamlAgentLoader {
         deep: true,
       }) as YamlAgentConfig;
 
+      // Allow retrieval of root agents based on filename
+      agent.isRootAgent = path.basename(filePath) == 'root_agent.yaml';
+
       // Make agent names unique by including relative file path from given root dir
       const relativePath = path.relative(this.directory, filePath);
       const parsedPath = path.parse(relativePath);

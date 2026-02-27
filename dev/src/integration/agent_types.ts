@@ -100,4 +100,7 @@ export interface YamlAgentConfig {
   afterAgentCallbacks?: CallbackInfo[];
   subAgents?: AgentReference[];
   tools?: ToolsConfiguration[];
+
+  // augmented information for retrieval
+  isRootAgent: boolean;
 }

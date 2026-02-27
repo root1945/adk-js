@@ -110,11 +110,8 @@ export class AgentRegistry {
         return subAgent;
       });
 
-      console.log('config.tools', config.tools);
       const tools = config.tools
         ?.map((toolConfig) => {
-          console.log('Loading tool', toolConfig.name);
-
           // Built in tools are skipped
           if (BUILTIN_TOOLS.includes(toolConfig.name)) {
             return undefined;
@@ -129,8 +126,6 @@ export class AgentRegistry {
         })
         // remove entries for built-in tools
         .filter((tool) => tool !== undefined);
-
-      console.log('tools', tools);
 
       const options = {
         name: config.name,

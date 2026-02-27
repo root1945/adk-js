@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import {StdioConnectionParams} from '@google/adk';
+
 /**
  * Define the YAML structure interfaces. These are derived from the existing YAML files.
  */
@@ -30,18 +32,8 @@ export interface AgentToolArgs {
   agent: AgentReference;
 }
 
-export interface StdioConnectionParams {
-  timeout: number;
-}
-
-export interface McpServerParams {
-  command: string;
-  args?: string[];
-}
-
 export interface McpToolsetArgs {
   stdioConnectionParams: StdioConnectionParams;
-  serverParams?: McpServerParams;
   toolFilter?: string[];
 }
 

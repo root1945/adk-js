@@ -5,15 +5,22 @@
  */
 
 import {
+  AgentTool,
   BaseAgent,
   FunctionTool,
   LlmAgent,
   LoopAgent,
+  MCPToolset,
   ParallelAgent,
   SequentialAgent,
 } from '@google/adk';
 import * as path from 'node:path';
-import {LongRunningFunctionToolArgs, YamlAgentConfig} from './agent_types.js';
+import {
+  AgentToolArgs,
+  LongRunningFunctionToolArgs,
+  McpToolsetArgs,
+  YamlAgentConfig,
+} from './agent_types.js';
 import {IntegrationRegistry} from './integration_registry.js';
 
 const BUILTIN_TOOLS = [
@@ -138,6 +145,32 @@ export class AgentRegistry {
             const args = toolConfig.args as LongRunningFunctionToolArgs;
             const subTool = this.findToolOrThrow(args!.func);
             return subTool;
+          }
+
+          if (toolConfig.name === 'AgentTool') {
+            const args = toolConfig.args as AgentToolArgs;
+            const subAgent = this.getAgent(args.agent.configPath);
+            if (!subAgent) {
+              throw new Error(
+                `Agent ${args.agent.configPath} not found in registry (referenced by AgentTool in ${name})`,
+              );
+            }
+            return new AgentTool({agent: subAgent});
+          }
+
+          if (toolConfig.name === 'McpToolset') {
+            const args = toolConfig.args as McpToolsetArgs;
+
+            // Ensure the type of the connection params is correct
+            if (args.stdioConnectionParams.type !== 'StdioConnectionParams') {
+              args.stdioConnectionParams.type = 'StdioConnectionParams';
+            }
+
+            const toolset = new MCPToolset(
+              args.stdioConnectionParams!,
+              args.toolFilter,
+            );
+            return toolset;
           }
 
           return this.findToolOrThrow(toolConfig.name);

@@ -81,11 +81,6 @@ class ReplayPlugin extends BasePlugin {
     callbackContext: CallbackContext;
     llmRequest: LlmRequest;
   }): Promise<LlmResponse | undefined> {
-    console.log('ReplayPlugin.beforeModelCallback');
-    console.log(this.context);
-    //console.log(util.inspect(this.recordings, {depth: null, colors: true}));
-    console.log(callbackContext.agentName);
-    console.log(this.recordings);
     const agentName = callbackContext.agentName;
     const index = this.recordings.findIndex(
       (r) =>
@@ -115,11 +110,6 @@ class ReplayPlugin extends BasePlugin {
     toolArgs: Record<string, unknown>;
     toolContext: ToolContext;
   }): Promise<Record<string, unknown> | undefined> {
-    console.log('ReplayPlugin.beforeToolCallback');
-    console.log(this.context);
-    //console.log(util.inspect(this.recordings, {depth: null, colors: true}));
-    console.log(params.toolContext.agentName);
-    console.log(this.recordings);
     const agentName = params.toolContext.invocationContext.agent.name;
     const toolName = params.tool.name;
 

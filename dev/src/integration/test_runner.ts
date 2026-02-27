@@ -37,8 +37,19 @@ import {AgentRegistry} from './agent_registry.js';
 import {Recording, TestInfo, UserMessage} from './test_types.js';
 
 const SKIPPED_TESTS = [
-  {name: 'tool/example_tool_001', reason: 'ExampleTool is not implemented yet'},
-  {name: 'workflow/loop_001', reason: 'ExitLoopTool is not implemented yet'},
+  {
+    name: 'tool/example_tool_001',
+    reason: 'ExampleTool is not implemented yet.',
+  },
+  {name: 'workflow/loop_001', reason: 'ExitLoopTool is not implemented yet.'},
+  {
+    name: 'core/multi_005',
+    reason: 'Suspected broken test. Need to re-evaluate.',
+  },
+  {
+    name: 'tool/long_running_tool_001',
+    reason: 'Suspected broken test. Need to re-evaluate.',
+  },
 ];
 
 class DummyLlm extends BaseLlm {

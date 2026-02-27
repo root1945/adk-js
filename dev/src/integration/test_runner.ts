@@ -84,8 +84,8 @@ class ReplayPlugin extends BasePlugin {
     console.log('ReplayPlugin.beforeModelCallback');
     console.log(this.context);
     //console.log(util.inspect(this.recordings, {depth: null, colors: true}));
-    console.log(this.recordings);
     console.log(callbackContext.agentName);
+    console.log(this.recordings);
     const agentName = callbackContext.agentName;
     const index = this.recordings.findIndex(
       (r) =>
@@ -118,8 +118,8 @@ class ReplayPlugin extends BasePlugin {
     console.log('ReplayPlugin.beforeToolCallback');
     console.log(this.context);
     //console.log(util.inspect(this.recordings, {depth: null, colors: true}));
-    console.log(this.recordings);
     console.log(params.toolContext.agentName);
+    console.log(this.recordings);
     const agentName = params.toolContext.invocationContext.agent.name;
     const toolName = params.tool.name;
 
@@ -141,6 +141,13 @@ class ReplayPlugin extends BasePlugin {
     const rec = this.recordings[index];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (rec as any)._consumed = true;
+
+    // Handle side effects for built-in tools that modify EventActions
+    if (toolName === 'transfer_to_agent') {
+      params.toolContext.actions.transferToAgent = params.toolArgs[
+        'agentName'
+      ] as string;
+    }
 
     // The response from a tool call is a plain object.
     const response = rec.toolRecording!.toolResponse!.response;

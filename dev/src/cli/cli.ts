@@ -413,6 +413,7 @@ export function createProgram(): Command {
       'Directory of conformance test definitions. Recursively searched for .yaml files with test definitions.',
       process.cwd(),
     )
+    .option('--force', 'Force run skipped tests.')
     .action(async (options: Record<string, string>) => {
       console.log(`Loading agents from ${options['agents_dir']}`);
       const agentConfigs = await new BatchYamlAgentLoader(
@@ -446,26 +447,39 @@ export function createProgram(): Command {
 
       console.log('Running tests.');
       const successfulTests = [];
+      const skippedTests = [];
       const failedTests = [];
-      const runner = new TestRunner(agentRegistry);
+      const testRunner = new TestRunner(agentRegistry);
+
       for (const [name, testInfo] of testSpecs) {
-        console.log('Running test', name);
+        console.log('\x1b[33mRunning test', name, '\x1b[0m\n');
         try {
-          await runner.run(testInfo);
+          const skipped = await testRunner.run(testInfo, !!options['force']);
+
+          if (skipped) {
+            skippedTests.push(name);
+            console.log('\n\x1b[33mTest skipped.\x1b[0m\n');
+            continue;
+          }
+
           successfulTests.push(name);
-          console.log('Test passed.');
+          console.log('\n\x1b[32mTest passed.\x1b[0m\n');
         } catch (_: unknown) {
           failedTests.push(name);
-          console.error('Test failed.');
+          console.error('\n\x1b[31mTest failed.\x1b[0m\n');
         }
       }
 
       console.log(
-        `${successfulTests.length} tests passed, ${failedTests.length} tests failed.`,
+        `\n\n${successfulTests.length} tests passed, ` +
+          `${skippedTests.length} tests skipped, ` +
+          `${failedTests.length} tests failed.`,
       );
 
       console.log('Successfull tests:', successfulTests.join(', '));
+      console.log('Skipped tests:', skippedTests.join(', '));
       console.log('Failed tests:', failedTests.join(', '));
+      console.log('\n');
     });
 
   return program;

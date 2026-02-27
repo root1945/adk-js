@@ -15,7 +15,12 @@ import * as path from 'node:path';
 import {YamlAgentConfig} from './agent_types.js';
 import {IntegrationRegistry} from './integration_registry.js';
 
-const BUILTIN_TOOLS = ['google_search', 'url_context', 'google_maps_grounding'];
+const BUILTIN_TOOLS = [
+  'exit_loop',
+  'google_search',
+  'url_context',
+  'google_maps_grounding',
+];
 
 export class AgentRegistry {
   private agents = new Map<string, BaseAgent>();

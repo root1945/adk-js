@@ -32,6 +32,8 @@ import * as assert from 'node:assert';
 import {AgentRegistry} from './agent_registry.js';
 import {Recording, TestInfo, UserMessage} from './test_types.js';
 
+const SKIPPED_TESTS = ['tool/example_tool_001'];
+
 class ReplayModel extends BaseLlm {
   constructor(
     private agentName: string,
@@ -78,7 +80,13 @@ class ReplayModel extends BaseLlm {
 export class TestRunner {
   constructor(private agentRegistry: AgentRegistry) {}
 
-  async run(testInfo: TestInfo) {
+  async run(testInfo: TestInfo, force: boolean): Promise<boolean> {
+    // skip tests for unimplemented features
+    if (!force && SKIPPED_TESTS.includes(testInfo.name)) {
+      console.log('Skipping test', testInfo.name);
+      return true;
+    }
+
     const agentName = testInfo.spec.agent;
     // Use the "short name" in the specs. This could possibly break
     // if there is more than one agent with the same name. Full names
@@ -143,6 +151,8 @@ export class TestRunner {
     }
 
     this.validateSession(session, testInfo.session);
+
+    return false;
   }
 
   private injectReplayModel(

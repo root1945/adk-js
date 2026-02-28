@@ -63,6 +63,7 @@
     "esbuild": "^0.25.9",
     "esbuild-shim-plugin": "^1.0.3",
     "express": "^4.21.2",
+    "fast-glob": "^3.3.3",
     "ts-graphviz": "^1.0.1",
     "yaml": "^2.8.2",
     "zod": "^4.2.1"

@@ -13,69 +13,65 @@ import {parse} from 'yaml';
 import {Recordings, TestInfo, TestSpec} from '../integration/test_types.js';
 
 /**
- * BatchYamlTestLoader will recursively search the directory given
+ * batchLoadYamlTestDefs will recursively search the directory given
  * and load all of the YAML files into in-memory config.
  */
-export class BatchYamlTestLoader {
-  constructor(private readonly directory: string) {}
+export async function batchLoadYamlTestDefs(
+  directory: string,
+): Promise<Map<string, TestInfo>> {
+  // Tests have 3 parts:
+  //
+  // 1. spec.yaml - the defined test config and input
+  // 2. generated-recordings.yaml - the recorded event information
+  // 3. generated-session.yaml - the recorded session information
+  //
+  // Assume any directory with a spec.yaml is a test with all 3 files
+  const files = fg.stream('**/spec.{yaml,yml}', {
+    cwd: directory,
+    absolute: true,
+  });
+  const tests = new Map<string, TestInfo>();
 
-  async load(): Promise<Map<string, TestInfo>> {
-    // Tests have 3 parts:
-    //
-    // 1. spec.yaml - the defined test config and input
-    // 2. generated-recordings.yaml - the recorded event information
-    // 3. generated-session.yaml - the recorded session information
-    //
-    // Assume any directory with a spec.yaml is a test with all 3 files
-    const files = fg.stream('**/spec.{yaml,yml}', {
-      cwd: this.directory,
-      absolute: true,
+  for await (const file of files) {
+    // Test directory
+    const baseDir = path.dirname(file as string);
+
+    // Spec file
+    const specFile = path.join(baseDir, 'spec.yaml');
+    const filePath = specFile as string;
+    const content = await fs.readFile(filePath, 'utf-8');
+    const testSpec = camelcaseKeys(parse(content), {
+      deep: true,
+    }) as TestSpec;
+
+    // Session file
+    const sessionFile = path.join(baseDir, 'generated-session.yaml');
+    const sessionContent = await fs.readFile(sessionFile, 'utf-8');
+    const session = camelcaseKeys(parse(sessionContent), {
+      deep: true,
+    }) as Session;
+
+    // Recordings file
+    const recordingsFile = path.join(baseDir, 'generated-recordings.yaml');
+    const recordingsContent = await fs.readFile(recordingsFile, 'utf-8');
+    const recordings = camelcaseKeys(parse(recordingsContent), {
+      deep: true,
+    }) as Recordings;
+
+    // Make test names unique by including relative file path from given root dir
+    const relativePath = path.relative(directory, baseDir);
+    const parsedPath = path.parse(relativePath);
+    const name = path.join(parsedPath.dir, parsedPath.name);
+
+    tests.set(name, {
+      name: name,
+      spec: testSpec,
+      session: session,
+      recordings: recordings,
     });
-    const tests = new Map<string, TestInfo>();
 
-    for await (const file of files) {
-      // Test directory
-      const baseDir = path.dirname(file as string);
-
-      // Spec file
-      const specFile = path.join(baseDir, 'spec.yaml');
-      const filePath = specFile as string;
-      const content = await fs.readFile(filePath, 'utf-8');
-      const testSpec = camelcaseKeys(parse(content), {
-        deep: true,
-      }) as TestSpec;
-
-      // Session file
-      const sessionFile = path.join(baseDir, 'generated-session.yaml');
-      const sessionContent = await fs.readFile(sessionFile, 'utf-8');
-      const session = camelcaseKeys(parse(sessionContent), {
-        deep: true,
-      }) as Session;
-
-      // Recordings file
-      const recordingsFile = path.join(baseDir, 'generated-recordings.yaml');
-      const recordingsContent = await fs.readFile(recordingsFile, 'utf-8');
-      const recordings = camelcaseKeys(parse(recordingsContent), {
-        deep: true,
-      }) as Recordings;
-
-      // Make test names unique by including relative file path from given root dir
-      const relativePath = path.relative(this.directory, baseDir);
-      const parsedPath = path.parse(relativePath);
-      const name = path.join(parsedPath.dir, parsedPath.name);
-
-      const testInfo: TestInfo = {
-        name: name,
-        spec: testSpec,
-        session: session,
-        recordings: recordings,
-      };
-
-      tests.set(name, testInfo);
-
-      console.log('loaded test', name, 'from', baseDir);
-    }
-
-    return tests;
+    console.log('loaded test', name, 'from', baseDir);
   }
+
+  return tests;
 }

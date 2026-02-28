@@ -5,6 +5,7 @@
  */
 
 import {StdioConnectionParams} from '@google/adk';
+import {GenerateContentConfig} from '@google/genai';
 
 /**
  * Define the YAML structure interfaces. These are derived from the existing YAML files.
@@ -14,10 +15,6 @@ export enum AgentClass {
   LoopAgent = 'LoopAgent',
   ParallelAgent = 'ParallelAgent',
   SequentialAgent = 'SequentialAgent',
-}
-
-export interface GenerateContentConfig {
-  temperature?: number;
 }
 
 export interface CallbackInfo {

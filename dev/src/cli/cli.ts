@@ -16,12 +16,7 @@ import {Argument, Command, Option} from 'commander';
 import dotenv from 'dotenv';
 import * as os from 'os';
 import * as path from 'path';
-import {registerConformanceIntegrations} from '../conformance/conformance_integrations.js';
-import {BatchYamlAgentLoader} from '../conformance/yaml_agent_loader.js';
-import {BatchYamlTestLoader} from '../conformance/yaml_test_loader.js';
-import {AgentRegistry} from '../integration/agent_registry.js';
-import {IntegrationRegistry} from '../integration/integration_registry.js';
-import {TestRunner} from '../integration/test_runner.js';
+import {runIntegrationTests} from '../integration/run_integration_tests.js';
 import {AdkApiServer} from '../server/adk_api_server.js';
 import {FileModuleType} from '../utils/agent_loader.js';
 import {getTempDir} from '../utils/file_utils.js';
@@ -415,71 +410,11 @@ export function createProgram(): Command {
     )
     .option('--force', 'Force run skipped tests.')
     .action(async (options: Record<string, string>) => {
-      console.log(`Loading agents from ${options['agents_dir']}`);
-      const agentConfigs = await new BatchYamlAgentLoader(
+      runIntegrationTests(
         options['agents_dir'],
-      ).load();
-      console.log(agentConfigs.size, 'agents found');
-
-      console.log('Registering conformance integrations.');
-      const registry = new IntegrationRegistry();
-      registerConformanceIntegrations(registry);
-      console.log(registry.summary());
-
-      console.log('Registering agents.');
-      const agentRegistry = new AgentRegistry(registry);
-      for (const [name, agentConfig] of agentConfigs) {
-        agentRegistry.registerAgentConfig(name, agentConfig);
-      }
-      console.log(agentRegistry.summary());
-
-      // console.log('Instantiating agents to check validity.');
-      // // Force instantiation of all agents to ensure they are valid
-      // for (const name of agentConfigs.keys()) {
-      //   agentRegistry.getAgent(name);
-      // }
-
-      console.log(`Loading tests from ${options['tests_dir']}`);
-      const testSpecs = await new BatchYamlTestLoader(
         options['tests_dir'],
-      ).load();
-      console.log(testSpecs.size, 'tests found.');
-
-      console.log('Running tests.');
-      const successfulTests = [];
-      const skippedTests = [];
-      const failedTests = [];
-      const testRunner = new TestRunner(agentRegistry);
-
-      for (const [name, testInfo] of testSpecs) {
-        console.log('\x1b[33mRunning test', name, '\x1b[0m\n');
-        try {
-          const skipped = await testRunner.run(testInfo, !!options['force']);
-
-          if (skipped) {
-            skippedTests.push(name);
-            console.log('\n\x1b[33mTest skipped.\x1b[0m\n');
-            continue;
-          }
-
-          successfulTests.push(name);
-          console.log('\n\x1b[32mTest passed.\x1b[0m\n');
-        } catch (_: unknown) {
-          failedTests.push(name);
-          console.error('\n\x1b[31mTest failed.\x1b[0m\n');
-        }
-      }
-
-      console.log(
-        `\n\n${successfulTests.length} tests passed, ` +
-          `${skippedTests.length} tests skipped, ` +
-          `${failedTests.length} tests failed.`,
+        getBoolean(options['force']),
       );
-
-      console.log('Successfull tests:', successfulTests.join(', '));
-      console.log('Skipped tests:', skippedTests.join(', '));
-      console.log('Failed tests:', failedTests.join(', '));
-      console.log('\n');
     });
 
   return program;

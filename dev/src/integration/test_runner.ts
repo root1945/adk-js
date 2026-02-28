@@ -5,19 +5,11 @@
  */
 import {
   BaseAgent,
-  BaseLlm,
-  BaseLlmConnection,
-  BasePlugin,
-  BaseTool,
-  CallbackContext,
   Event,
   InMemorySessionService,
   isLlmAgent,
-  LlmRequest,
-  LlmResponse,
   Runner,
   Session,
-  ToolContext,
 } from '@google/adk';
 import {
   Blob,
@@ -31,10 +23,12 @@ import {
   PartMediaResolution,
   VideoMetadata,
 } from '@google/genai';
+import {cloneDeep} from 'lodash-es';
 import * as assert from 'node:assert';
-//import util from 'node:util';
 import {AgentRegistry} from './agent_registry.js';
-import {Recording, TestInfo, UserMessage} from './test_types.js';
+import {DummyLlm} from './dummy_llm.js';
+import {ReplayPlugin} from './replay_plugin.js';
+import {TestInfo, UserMessage} from './test_types.js';
 
 const SKIPPED_TESTS = [
   {
@@ -51,113 +45,6 @@ const SKIPPED_TESTS = [
     reason: 'Suspected broken test. Need to re-evaluate.',
   },
 ];
-
-class DummyLlm extends BaseLlm {
-  constructor() {
-    super({model: 'dummy-llm'});
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  connect(llmRequest: LlmRequest): Promise<BaseLlmConnection> {
-    throw new Error(
-      'DummyLlm.connect should not be called during replay tests.',
-    );
-  }
-
-  /* eslint-disable @typescript-eslint/no-unused-vars, require-yield */
-  async *generateContentAsync(
-    request: LlmRequest,
-    stream?: boolean,
-  ): AsyncGenerator<LlmResponse, void, void> {
-    throw new Error(
-      `DummyLlm.generateContentAsync should not be called during replay tests. request: ${JSON.stringify(
-        request,
-      )}`,
-    );
-  }
-  /* eslint-ensable @typescript-eslint/no-unused-vars, require-yield */
-}
-
-class ReplayPlugin extends BasePlugin {
-  constructor(
-    private recordings: Recording[],
-    private context: {userMessageIndex: number},
-  ) {
-    super('replay-plugin');
-  }
-
-  override async beforeModelCallback({
-    callbackContext,
-  }: {
-    callbackContext: CallbackContext;
-    llmRequest: LlmRequest;
-  }): Promise<LlmResponse | undefined> {
-    const agentName = callbackContext.agentName;
-    const index = this.recordings.findIndex(
-      (r) =>
-        r.userMessageIndex === this.context.userMessageIndex &&
-        r.agentName === agentName &&
-        r.llmRecording?.llmResponse &&
-        // replay internal flag to mark event as consumed
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        !(r as any)._consumed,
-    );
-
-    if (index === -1) {
-      throw new Error(
-        `No LLM recording found for agent ${agentName} at turn ${this.context.userMessageIndex}`,
-      );
-    }
-
-    const rec = this.recordings[index];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (rec as any)._consumed = true;
-
-    return rec.llmRecording!.llmResponse!;
-  }
-
-  override async beforeToolCallback(params: {
-    tool: BaseTool;
-    toolArgs: Record<string, unknown>;
-    toolContext: ToolContext;
-  }): Promise<Record<string, unknown> | undefined> {
-    const agentName = params.toolContext.invocationContext.agent.name;
-    const toolName = params.tool.name;
-
-    const index = this.recordings.findIndex(
-      (r) =>
-        r.userMessageIndex === this.context.userMessageIndex &&
-        r.agentName === agentName &&
-        r.toolRecording?.toolCall?.name === toolName &&
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        !(r as any)._consumed,
-    );
-
-    if (index === -1) {
-      throw new Error(
-        `No tool recording found for agent ${agentName}, tool ${toolName} at turn ${this.context.userMessageIndex}`,
-      );
-    }
-
-    const rec = this.recordings[index];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (rec as any)._consumed = true;
-
-    // Handle side effects for built-in tools that modify EventActions
-    if (toolName === 'transfer_to_agent') {
-      params.toolContext.actions.transferToAgent = params.toolArgs[
-        'agentName'
-      ] as string;
-    }
-
-    // The response from a tool call is a plain object.
-    const response = rec.toolRecording!.toolResponse!.response;
-    if (response instanceof Map) {
-      return Object.fromEntries(response);
-    }
-    return response;
-  }
-}
 
 export class TestRunner {
   constructor(private agentRegistry: AgentRegistry) {}
@@ -183,11 +70,9 @@ export class TestRunner {
     }
 
     // Clone recordings to track consumption without mutating the original test info
-    const recordings = JSON.parse(
-      JSON.stringify(testInfo.recordings.recordings),
-    );
+    const recordings = cloneDeep(testInfo.recordings.recordings);
     const context = {userMessageIndex: 0};
-    this.injectDummyLlm(agent);
+    injectDummyLlm(agent);
 
     const replayPlugin = new ReplayPlugin(recordings, context);
     const sessionService = new InMemorySessionService();
@@ -213,7 +98,7 @@ export class TestRunner {
     for (let i = 0; i < userMessages.length; i++) {
       context.userMessageIndex = i;
       const userMsg = userMessages[i];
-      const content = this.userMessageToContent(userMsg);
+      const content = userMessageToContent(userMsg);
 
       const iterator = runner.runAsync({
         userId,
@@ -237,53 +122,53 @@ export class TestRunner {
       throw new Error('Session not found after execution');
     }
 
-    this.validateSession(session, testInfo.session);
+    validateSession(session, testInfo.session);
 
     return false;
   }
+}
 
-  private injectDummyLlm(agent: BaseAgent) {
-    if (isLlmAgent(agent)) {
-      agent.model = new DummyLlm();
-    }
-
-    // Traverse subagents
-    const subAgents = agent.subAgents;
-    if (subAgents && Array.isArray(subAgents)) {
-      for (const sub of subAgents) {
-        this.injectDummyLlm(sub);
-      }
-    }
+function injectDummyLlm(agent: BaseAgent) {
+  if (isLlmAgent(agent)) {
+    agent.model = new DummyLlm();
   }
 
-  private userMessageToContent(msg: UserMessage): Content {
-    if (msg.content) {
-      const content = msg.content;
-      content.role = 'user';
-      return content;
+  // Traverse subagents
+  const subAgents = agent.subAgents;
+  if (subAgents && Array.isArray(subAgents)) {
+    for (const sub of subAgents) {
+      injectDummyLlm(sub);
     }
-    if (msg.text) {
-      return {role: 'user', parts: [{text: msg.text}]};
-    }
+  }
+}
 
-    throw new Error('Either Content text or content field is required');
+function userMessageToContent(msg: UserMessage): Content {
+  if (msg.content) {
+    const content = msg.content;
+    content.role = 'user';
+    return content;
+  }
+  if (msg.text) {
+    return {role: 'user', parts: [{text: msg.text}]};
   }
 
-  private validateSession(actual: Session, expected: Session) {
-    const actualEvents = actual.events.map(this.normalizeEvent);
-    const expectedEvents = expected.events.map(this.normalizeEvent);
+  throw new Error('Either Content text or content field is required');
+}
 
-    assert.deepStrictEqual(actualEvents, expectedEvents);
-  }
+function validateSession(actual: Session, expected: Session) {
+  const actualEvents = actual.events.map(normalizeEvent);
+  const expectedEvents = expected.events.map(normalizeEvent);
 
-  private normalizeEvent(event: Event): FilteredEvent {
-    const filteredEvent = event as FilteredEvent;
-    filterEventFields(filteredEvent);
-    removeEmptyAndUndefinedFields(
-      filteredEvent as unknown as Record<string, unknown>,
-    );
-    return filteredEvent;
-  }
+  assert.deepStrictEqual(actualEvents, expectedEvents);
+}
+
+function normalizeEvent(event: Event): FilteredEvent {
+  const filteredEvent = event as FilteredEvent;
+  filterEventFields(filteredEvent);
+  removeEmptyAndUndefinedFields(
+    filteredEvent as unknown as Record<string, unknown>,
+  );
+  return filteredEvent;
 }
 
 function removeEmptyAndUndefinedFields(obj: Record<string, unknown>) {

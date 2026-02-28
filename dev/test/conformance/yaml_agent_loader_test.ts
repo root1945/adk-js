@@ -7,7 +7,7 @@
 import fg from 'fast-glob';
 import * as fs from 'node:fs/promises';
 import {beforeEach, describe, expect, it, Mock, vi} from 'vitest';
-import {BatchYamlAgentLoader} from '../../src/conformance/yaml_agent_loader.js';
+import {batchLoadYamlAgentConfig} from '../../src/conformance/yaml_agent_loader.js';
 
 // Mock fast-glob
 vi.mock('fast-glob', () => ({
@@ -52,8 +52,8 @@ before_agent_callbacks:
 after_agent_callbacks:
   - name: afterCallback
 sub_agents:
-  - config_path: /path/to/subagent.yaml
-tools_configuration:
+  - config_path: path/to/subagent.yaml
+tools:
   - name: mcp_tool
     args:
       stdio_connection_params:
@@ -96,8 +96,7 @@ describe('BatchYamlAgentLoader', () => {
       throw new Error(`File not found: ${filePath}`);
     });
 
-    const loader = new BatchYamlAgentLoader('/root/dir');
-    const agents = await loader.load();
+    const agents = await batchLoadYamlAgentConfig('/root/dir');
 
     expect(fg.stream).toHaveBeenCalledWith('**/*.{yaml,yml}', {
       cwd: '/root/dir',
@@ -140,7 +139,7 @@ describe('BatchYamlAgentLoader', () => {
           configPath: 'path/to/subagent',
         },
       ],
-      toolsConfiguration: [
+      tools: [
         {
           name: 'mcp_tool',
           args: {
@@ -180,8 +179,7 @@ instruction: instr
 `;
     });
 
-    const loader = new BatchYamlAgentLoader('/root/dir');
-    const agents = await loader.load();
+    const agents = await batchLoadYamlAgentConfig('/root/dir');
 
     expect(agents.size).toBe(4);
     validClasses.forEach((cls) => {
@@ -203,8 +201,7 @@ instruction: instr
 `,
     );
 
-    const loader = new BatchYamlAgentLoader('/root/dir');
-    const agents = await loader.load();
+    const agents = await batchLoadYamlAgentConfig('/root/dir');
 
     expect(agents.size).toBe(1);
     expect(agents.get('invalid')?.agentClass).toBe('InvalidClass');
@@ -219,7 +216,7 @@ name: agent_tools
 model: model
 description: desc
 instruction: instr
-tools_configuration:
+tools:
   - name: agent_ref_tool
     args:
       config_path: /path/to/ref.yaml
@@ -255,11 +252,10 @@ tools_configuration:
 
     (fs.readFile as Mock).mockImplementation(async () => AGENT_WITH_TOOLS_YAML);
 
-    const loader = new BatchYamlAgentLoader('/root/dir');
-    const agents = await loader.load();
+    const agents = await batchLoadYamlAgentConfig('/root/dir');
 
     expect(agents.size).toBe(1);
-    const tools = agents.get('agent_tools')?.toolsConfiguration;
+    const tools = agents.get('agent_tools')?.tools;
     expect(tools).toHaveLength(4);
 
     expect(tools![0]).toMatchObject({
@@ -334,8 +330,7 @@ nested_extra:
       async () => AGENT_WITH_EXTRA_FIELDS,
     );
 
-    const loader = new BatchYamlAgentLoader('/root/dir');
-    const agents = await loader.load();
+    const agents = await batchLoadYamlAgentConfig('/root/dir');
 
     expect(agents.size).toBe(1);
     const agent = agents.get('agent_extra');

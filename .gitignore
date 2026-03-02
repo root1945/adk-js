@@ -8,3 +8,15 @@ node_modules/
 tests/**/package-lock.json
 coverage/
 .env
+
+# Artefatos JS gerados a partir de fontes TypeScript
+core/src/**/*.js
+core/test/**/*.js
+dev/src/**/*.js
+dev/test/**/*.js
+tests/global_setup.js
+tests/integration/agents/**/*.js
+tests/integration/build_setup/ts_*/**/*.js
+tests/integration/build_setup/build_setup_test.js
+dev/samples/*.js
+vitest.config.js
